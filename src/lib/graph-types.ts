@@ -3,7 +3,7 @@ export interface GraphNode {
   label: string;
   x: number;
   y: number;
-  state: 'default' | 'visited' | 'current' | 'path';
+  state: 'default' | 'visited' | 'current' | 'path' | 'error';
   distance?: number;
   parent?: string;
 }
@@ -15,6 +15,8 @@ export interface GraphEdge {
   weight?: number;
   isActive: boolean;
   isInMST?: boolean;
+  inTree?: boolean;
+  isError?: boolean;
 }
 
 export interface GraphData {

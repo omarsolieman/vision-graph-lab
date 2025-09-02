@@ -27,18 +27,22 @@
 
 ## 📑 Table of Contents
 
-* [✨ Key Features](#-key-features)
-* [🖼️ GIF Demo](#-gif-demo)
-* [🧠 Supported Algorithms](#-supported-algorithms)
-* [🛠 Tech Stack](#-tech-stack)
-* [🚀 Getting Started](#-getting-started)
-
-  * [✅ Prerequisites](#-prerequisites)
-  * [⚡ Installation](#-installation)
-* [🤝 Contributing](#-contributing)
-* [📜 License](#-license)
-* [📌 Tags](#-tags)
-* [🖼️ Preview Screenshot](#-preview-screenshot)
+- [⚡ GraphViz: Interactive Graph Algorithm Visualizer](#-graphviz-interactive-graph-algorithm-visualizer)
+  - [🌍 Live Demo](#-live-demo)
+  - [📑 Table of Contents](#-table-of-contents)
+  - [✨ Key Features](#-key-features)
+  - [🖼️ GIF Demo](#️-gif-demo)
+  - [🧠 Supported Algorithms](#-supported-algorithms)
+    - [✅ Implemented](#-implemented)
+    - [🚧 Coming Soon](#-coming-soon)
+  - [🛠 Built With](#-built-with)
+  - [🚀 Getting Started](#-getting-started)
+    - [✅ Prerequisites](#-prerequisites)
+    - [⚡ Installation](#-installation)
+  - [🤝 Contributing](#-contributing)
+  - [📜 License](#-license)
+    - [📌 Tags](#-tags)
+    - [🖼️ Preview Screenshot](#️-preview-screenshot)
 
 ---
 
@@ -64,29 +68,26 @@
 
 ## 🧠 Supported Algorithms
 
+
 ### ✅ Implemented
 
 * 🔍 **Graph Traversal**
-
   * ✅ Breadth-First Search (BFS)
 * 🛣 **Shortest Path**
-
   * ✅ Dijkstra's Algorithm
+  * ✅ Bellman-Ford
+* 🌲 **Minimum Spanning Tree**
+  * ✅ Prim's Algorithm
+  * ✅ Kruskal's Algorithm
 
 ### 🚧 Coming Soon
 
 * 🔍 **Graph Traversal**
-
   * Depth-First Search (DFS)
   * Topological Sort
 * 🛣 **Shortest Path**
-
-  * Bellman-Ford
   * Floyd-Warshall
 * 🌲 **Minimum Spanning Tree**
-
-  * Prim's Algorithm
-  * Kruskal's Algorithm
   * Borůvka's Algorithm
 
 ---

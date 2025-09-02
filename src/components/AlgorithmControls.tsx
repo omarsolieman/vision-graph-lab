@@ -10,12 +10,19 @@ import { GraphData, AlgorithmStep } from "@/lib/graph-types";
 import { AlgorithmRunner, getAlgorithmCode } from "@/lib/algorithms";
 import { CodeVisualization } from "./CodeVisualization";
 
-type Algorithm = 'bfs' | 'dfs' | 'dijkstra' | 'bellman-ford' | 'prim' | 'kruskal';
-type ExecutionState = 'idle' | 'running' | 'paused' | 'completed';
+
+export type Algorithm = 'bfs' | 'dfs' | 'dijkstra' | 'bellman-ford' | 'prim' | 'kruskal';
+export type ExecutionState = 'idle' | 'running' | 'paused' | 'completed';
 
 interface AlgorithmControlsProps {
   graphData: GraphData;
   setGraphData: React.Dispatch<React.SetStateAction<GraphData>>;
+  selectedAlgorithm: Algorithm;
+  setSelectedAlgorithm: (algo: Algorithm) => void;
+  algorithmSteps: AlgorithmStep[];
+  setAlgorithmSteps: (steps: AlgorithmStep[]) => void;
+  currentStep: number;
+  setCurrentStep: React.Dispatch<React.SetStateAction<number>>;
 }
 
 const algorithms = {
@@ -27,15 +34,21 @@ const algorithms = {
   'kruskal': 'Kruskal\'s Algorithm (MST)'
 };
 
-export const AlgorithmControls = ({ graphData, setGraphData }: AlgorithmControlsProps) => {
-  const [selectedAlgorithm, setSelectedAlgorithm] = useState<Algorithm>('bfs');
+export const AlgorithmControls = ({
+  graphData,
+  setGraphData,
+  selectedAlgorithm,
+  setSelectedAlgorithm,
+  algorithmSteps,
+  setAlgorithmSteps,
+  currentStep,
+  setCurrentStep
+}: AlgorithmControlsProps) => {
   const [executionState, setExecutionState] = useState<ExecutionState>('idle');
   const [speed, setSpeed] = useState([50]);
   const [startNode, setStartNode] = useState<string>('');
   const [endNode, setEndNode] = useState<string>('');
-  const [currentStep, setCurrentStep] = useState(0);
   const [totalSteps, setTotalSteps] = useState(0);
-  const [algorithmSteps, setAlgorithmSteps] = useState<AlgorithmStep[]>([]);
   const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
@@ -93,6 +106,14 @@ export const AlgorithmControls = ({ graphData, setGraphData }: AlgorithmControls
         } else if (selectedAlgorithm === 'dijkstra') {
           const start = startNode || graphData.nodes[0].id;
           execution = await runner.runDijkstra(start);
+        } else if (selectedAlgorithm === 'prim') {
+          const start = startNode || graphData.nodes[0].id;
+          execution = await runner.runPrims(start);
+        } else if (selectedAlgorithm === 'kruskal') {
+          execution = await runner.runKruskals();
+        } else if (selectedAlgorithm === 'bellman-ford') {
+          const start = startNode || graphData.nodes[0].id;
+          execution = await runner.runBellmanFord(start);
         } else {
           toast({
             title: "Algorithm Not Implemented",
@@ -425,14 +446,7 @@ export const AlgorithmControls = ({ graphData, setGraphData }: AlgorithmControls
         </CardContent>
       </Card>
 
-      {algorithmSteps.length > 0 && (
-        <CodeVisualization
-          algorithm={selectedAlgorithm}
-          codeLines={getAlgorithmCode(selectedAlgorithm)}
-          currentLine={algorithmSteps[currentStep]?.codeLine || 0}
-          currentStep={algorithmSteps[currentStep]?.description || 'Ready to start'}
-        />
-      )}
+  {/* CodeVisualization removed: now rendered in Index.tsx only */}
     </div>
   );
 };

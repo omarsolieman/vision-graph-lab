@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { GraphCanvas } from "@/components/GraphCanvas";
-import { AlgorithmControls } from "@/components/AlgorithmControls";
+import { AlgorithmControls, Algorithm } from "@/components/AlgorithmControls";
+import { CodeVisualization } from "@/components/CodeVisualization";
+import { getAlgorithmCode } from "@/lib/algorithms";
 import { GraphData } from "@/lib/graph-types";
 import { Play, Pause, RotateCcw, Zap } from "lucide-react";
 import graphHero from "@/assets/graph-hero.jpg";
@@ -10,6 +12,11 @@ import graphHero from "@/assets/graph-hero.jpg";
 const Index = () => {
   const [isVisualizationMode, setIsVisualizationMode] = useState(false);
   const [graphData, setGraphData] = useState<GraphData>({ nodes: [], edges: [] });
+  const [showCodePanel, setShowCodePanel] = useState(true);
+  const [codePanelWidth, setCodePanelWidth] = useState(400);
+  const [selectedAlgorithm, setSelectedAlgorithm] = useState<Algorithm>('bfs');
+  const [algorithmSteps, setAlgorithmSteps] = useState<any[]>([]);
+  const [currentStep, setCurrentStep] = useState<number>(0);
 
   if (isVisualizationMode) {
     return (
@@ -28,14 +35,54 @@ const Index = () => {
             </Button>
           </div>
         </header>
-        
         <div className="flex h-[calc(100vh-73px)]">
           <aside className="w-80 border-r border-border bg-card/50 p-4">
-            <AlgorithmControls graphData={graphData} setGraphData={setGraphData} />
+            <AlgorithmControls
+              graphData={graphData}
+              setGraphData={setGraphData}
+              selectedAlgorithm={selectedAlgorithm}
+              setSelectedAlgorithm={setSelectedAlgorithm}
+              algorithmSteps={algorithmSteps}
+              setAlgorithmSteps={setAlgorithmSteps}
+              currentStep={currentStep}
+              setCurrentStep={setCurrentStep}
+            />
           </aside>
-          
-          <main className="flex-1">
-            <GraphCanvas graphData={graphData} setGraphData={setGraphData} />
+          <main className="flex-1 flex">
+            <div className="flex-1">
+              <GraphCanvas graphData={graphData} setGraphData={setGraphData} />
+            </div>
+            {/* Code Panel */}
+            {showCodePanel && (
+              <div
+                className="relative bg-background border-l border-border h-full flex flex-col transition-all duration-300"
+                style={{ width: codePanelWidth, minWidth: 320, maxWidth: 600 }}
+              >
+                <button
+                  className="absolute top-2 left-2 z-10 bg-card/80 rounded px-2 py-1 text-xs border border-border hover:bg-primary/10"
+                  onClick={() => setShowCodePanel(false)}
+                  title="Close code panel"
+                >
+                  Close
+                </button>
+                {/* You would pass real props here from AlgorithmControls */}
+                <CodeVisualization
+                  algorithm={selectedAlgorithm}
+                  codeLines={getAlgorithmCode(selectedAlgorithm)}
+                  currentLine={algorithmSteps[currentStep]?.codeLine || 0}
+                  currentStep={algorithmSteps[currentStep]?.description || 'Ready to start'}
+                />
+              </div>
+            )}
+            {!showCodePanel && (
+              <button
+                className="absolute top-4 right-4 z-20 bg-card/80 rounded px-2 py-1 text-xs border border-border hover:bg-primary/10"
+                onClick={() => setShowCodePanel(true)}
+                title="Expand code panel"
+              >
+                Show Code
+              </button>
+            )}
           </main>
         </div>
       </div>
