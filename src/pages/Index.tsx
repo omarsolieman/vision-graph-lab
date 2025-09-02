@@ -193,7 +193,26 @@ const Index = () => {
           </div>
         </div>
       </section>
-    </div>
+    {/* About/Attribution Section */}
+    <section className="py-16 bg-card/40 border-t border-border mt-12">
+      <div className="container mx-auto px-4 max-w-2xl text-center">
+        <h2 className="text-2xl font-bold mb-4">About This Project</h2>
+        <p className="mb-4 text-lg">
+          <span className="font-semibold">Developed with ❤️ by Omar Solieman</span>
+        </p>
+        <div className="flex justify-center gap-6 mb-4">
+          <a href="https://github.com/omarsolieman" target="_blank" rel="noopener noreferrer" className="text-primary underline hover:text-accent">GitHub</a>
+          <a href="https://www.linkedin.com/in/omarsolieman/" target="_blank" rel="noopener noreferrer" className="text-primary underline hover:text-accent">LinkedIn</a>
+        </div>
+        <p className="mb-2 text-base text-muted-foreground">
+          I built this tool to make learning graph algorithms easier, more visual, and more interactive. You can draw graphs, run classic algorithms, and see every step in real time. My goal is to help students and enthusiasts truly understand how these algorithms work, not just memorize them.
+        </p>
+        <p className="text-base text-muted-foreground italic">
+          <strong>Note:</strong> Please use this tool for learning and practice only. I do <span className="underline">not</span> condone using it for exams, assignments, or any form of academic dishonesty.
+        </p>
+      </div>
+    </section>
+  </div>
   );
 };
 
