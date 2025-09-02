@@ -1,12 +1,149 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { GraphCanvas } from "@/components/GraphCanvas";
+import { AlgorithmControls } from "@/components/AlgorithmControls";
+import { Play, Pause, RotateCcw, Zap } from "lucide-react";
+import graphHero from "@/assets/graph-hero.jpg";
 
 const Index = () => {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+  const [isVisualizationMode, setIsVisualizationMode] = useState(false);
+
+  if (isVisualizationMode) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="border-b border-border bg-card/50 backdrop-blur">
+          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Zap className="h-8 w-8 text-primary" />
+              <h1 className="text-2xl font-bold">GraphViz</h1>
+            </div>
+            <Button 
+              onClick={() => setIsVisualizationMode(false)}
+              variant="outline"
+            >
+              Back to Home
+            </Button>
+          </div>
+        </header>
+        
+        <div className="flex h-[calc(100vh-73px)]">
+          <aside className="w-80 border-r border-border bg-card/50 p-4">
+            <AlgorithmControls />
+          </aside>
+          
+          <main className="flex-1">
+            <GraphCanvas />
+          </main>
+        </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Hero Section */}
+      <section className="relative overflow-hidden">
+        <div className="container mx-auto px-4 py-20 text-center">
+          <div className="relative z-10">
+            <div className="flex items-center justify-center gap-3 mb-6">
+              <Zap className="h-12 w-12 text-primary" />
+              <h1 className="text-6xl font-bold bg-gradient-hero bg-clip-text text-transparent">
+                GraphViz
+              </h1>
+            </div>
+            
+            <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+              Visualize and understand graph algorithms through interactive animations. 
+              Draw graphs, run algorithms, and see how they work step by step.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+              <Button 
+                variant="hero" 
+                size="xl"
+                onClick={() => setIsVisualizationMode(true)}
+              >
+                <Play className="mr-2 h-5 w-5" />
+                Start Visualizing
+              </Button>
+              <Button variant="outline" size="xl">
+                Learn More
+              </Button>
+            </div>
+          </div>
+          
+          {/* Background Decoration */}
+          <div className="absolute inset-0">
+            <img 
+              src={graphHero} 
+              alt="Graph visualization background" 
+              className="w-full h-full object-cover opacity-20"
+            />
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+          </div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-20">
+        <div className="container mx-auto px-4">
+          <h2 className="text-4xl font-bold text-center mb-12">
+            Supported Algorithms
+          </h2>
+          
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Card className="bg-gradient-card border-border/50 hover:border-primary/20 transition-colors">
+              <CardHeader>
+                <CardTitle className="text-accent">Graph Traversal</CardTitle>
+                <CardDescription>
+                  Explore graph structures systematically
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  <li>• Breadth-First Search (BFS)</li>
+                  <li>• Depth-First Search (DFS)</li>
+                  <li>• Topological Sort</li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-card border-border/50 hover:border-primary/20 transition-colors">
+              <CardHeader>
+                <CardTitle className="text-accent">Shortest Path</CardTitle>
+                <CardDescription>
+                  Find optimal routes between nodes
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  <li>• Dijkstra's Algorithm</li>
+                  <li>• Bellman-Ford Algorithm</li>
+                  <li>• Floyd-Warshall</li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-card border-border/50 hover:border-primary/20 transition-colors">
+              <CardHeader>
+                <CardTitle className="text-accent">Minimum Spanning Tree</CardTitle>
+                <CardDescription>
+                  Connect all nodes with minimum cost
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  <li>• Prim's Algorithm</li>
+                  <li>• Kruskal's Algorithm</li>
+                  <li>• Borůvka's Algorithm</li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };

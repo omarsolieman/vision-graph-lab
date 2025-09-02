@@ -26,7 +26,8 @@ export default {
 				foreground: 'hsl(var(--foreground))',
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
-					foreground: 'hsl(var(--primary-foreground))'
+					foreground: 'hsl(var(--primary-foreground))',
+					glow: 'hsl(var(--primary-glow))'
 				},
 				secondary: {
 					DEFAULT: 'hsl(var(--secondary))',
@@ -52,6 +53,21 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				// Graph Algorithm Specific Colors
+				node: {
+					default: 'hsl(var(--node-default))',
+					visited: 'hsl(var(--node-visited))',
+					current: 'hsl(var(--node-current))',
+					path: 'hsl(var(--node-path))'
+				},
+				edge: {
+					default: 'hsl(var(--edge-default))',
+					active: 'hsl(var(--edge-active))'
+				},
+				canvas: {
+					background: 'hsl(var(--canvas-background))',
+					grid: 'hsl(var(--grid-color))'
+				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
@@ -62,6 +78,11 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				}
+			},
+			backgroundImage: {
+				'gradient-hero': 'var(--gradient-hero)',
+				'gradient-card': 'var(--gradient-card)',
+				'gradient-button': 'var(--gradient-button)'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
