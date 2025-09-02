@@ -1,20 +1,27 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { MousePointer2, Plus, Minus } from "lucide-react";
 import { GraphNode, GraphEdge, GraphData } from "@/lib/graph-types";
 import { useToast } from "@/hooks/use-toast";
 
 type Tool = 'select' | 'add-node' | 'add-edge';
 
-export const GraphCanvas = () => {
+interface GraphCanvasProps {
+  graphData: GraphData;
+  setGraphData: React.Dispatch<React.SetStateAction<GraphData>>;
+}
+
+export const GraphCanvas = ({ graphData, setGraphData }: GraphCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [tool, setTool] = useState<Tool>('select');
-  const [graphData, setGraphData] = useState<GraphData>({ nodes: [], edges: [] });
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [isDrawingEdge, setIsDrawingEdge] = useState(false);
   const [edgeStart, setEdgeStart] = useState<string | null>(null);
+  const [editingEdge, setEditingEdge] = useState<string | null>(null);
+  const [editWeight, setEditWeight] = useState('');
   const { toast } = useToast();
 
   const canvasWidth = 1200;
@@ -73,13 +80,16 @@ export const GraphCanvas = () => {
           const midX = (sourceNode.x + targetNode.x) / 2;
           const midY = (sourceNode.y + targetNode.y) / 2;
           
-          ctx.fillStyle = 'hsl(210 40% 98%)';
+          // Highlight if being edited
+          const isEditing = editingEdge === edge.id;
+          
+          ctx.fillStyle = isEditing ? 'hsl(48 96% 60%)' : 'hsl(210 40% 98%)';
           ctx.fillRect(midX - 15, midY - 10, 30, 20);
-          ctx.strokeStyle = 'hsl(217 32% 17%)';
+          ctx.strokeStyle = isEditing ? 'hsl(48 96% 60%)' : 'hsl(217 32% 17%)';
           ctx.strokeRect(midX - 15, midY - 10, 30, 20);
           
           ctx.fillStyle = 'hsl(222 84% 5%)';
-          ctx.font = '12px monospace';
+          ctx.font = isEditing ? 'bold 12px monospace' : '12px monospace';
           ctx.textAlign = 'center';
           ctx.fillText(edge.weight.toString(), midX, midY + 4);
         }
@@ -149,11 +159,38 @@ export const GraphCanvas = () => {
     }) || null;
   };
 
+  const findEdgeWeightAt = (x: number, y: number): GraphEdge | null => {
+    for (const edge of graphData.edges) {
+      if (edge.weight === undefined) continue;
+      
+      const sourceNode = graphData.nodes.find(n => n.id === edge.source);
+      const targetNode = graphData.nodes.find(n => n.id === edge.target);
+      
+      if (sourceNode && targetNode) {
+        const midX = (sourceNode.x + targetNode.x) / 2;
+        const midY = (sourceNode.y + targetNode.y) / 2;
+        
+        if (x >= midX - 15 && x <= midX + 15 && y >= midY - 10 && y <= midY + 10) {
+          return edge;
+        }
+      }
+    }
+    return null;
+  };
+
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const pos = getMousePos(e);
     const clickedNode = findNodeAt(pos.x, pos.y);
+    const clickedEdge = findEdgeWeightAt(pos.x, pos.y);
 
-    if (tool === 'add-node' && !clickedNode) {
+    // Handle edge weight editing
+    if (tool === 'select' && clickedEdge && !clickedNode) {
+      setEditingEdge(clickedEdge.id);
+      setEditWeight(clickedEdge.weight?.toString() || '');
+      return;
+    }
+
+    if (tool === 'add-node' && !clickedNode && !clickedEdge) {
       const newNode: GraphNode = {
         id: `node-${Date.now()}`,
         label: String.fromCharCode(65 + graphData.nodes.length),
@@ -218,6 +255,40 @@ export const GraphCanvas = () => {
       const hoveredNode = findNodeAt(pos.x, pos.y);
       setHoveredNode(hoveredNode?.id || null);
     }
+    
+    // Clear editing state when clicking elsewhere
+    if (editingEdge) {
+      setEditingEdge(null);
+    }
+  };
+
+  const handleWeightSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && editingEdge) {
+      const weight = parseInt(editWeight);
+      if (!isNaN(weight) && weight > 0) {
+        setGraphData(prev => ({
+          ...prev,
+          edges: prev.edges.map(edge => 
+            edge.id === editingEdge 
+              ? { ...edge, weight }
+              : edge
+          )
+        }));
+        
+        toast({
+          title: "Weight Updated",
+          description: `Edge weight set to ${weight}`,
+        });
+      }
+      
+      setEditingEdge(null);
+      setEditWeight('');
+    }
+    
+    if (e.key === 'Escape') {
+      setEditingEdge(null);
+      setEditWeight('');
+    }
   };
 
   const clearGraph = () => {
@@ -225,6 +296,7 @@ export const GraphCanvas = () => {
     setSelectedNode(null);
     setIsDrawingEdge(false);
     setEdgeStart(null);
+    setEditingEdge(null);
     toast({
       title: "Graph Cleared",
       description: "All nodes and edges have been removed",
@@ -280,9 +352,15 @@ export const GraphCanvas = () => {
             Click on another node to create an edge
           </div>
         )}
+        
+        {editingEdge && (
+          <div className="mt-2 text-sm text-muted-foreground">
+            Editing edge weight - Press Enter to save, Escape to cancel
+          </div>
+        )}
       </div>
       
-      <div className="flex-1 flex items-center justify-center bg-canvas-background">
+      <div className="flex-1 flex items-center justify-center bg-canvas-background relative">
         <canvas
           ref={canvasRef}
           width={canvasWidth}
@@ -291,6 +369,19 @@ export const GraphCanvas = () => {
           onClick={handleCanvasClick}
           onMouseMove={handleCanvasMouseMove}
         />
+        
+        {editingEdge && (
+          <div className="absolute top-4 left-4 z-10">
+            <Input
+              value={editWeight}
+              onChange={(e) => setEditWeight(e.target.value)}
+              onKeyDown={handleWeightSubmit}
+              placeholder="Enter weight"
+              className="w-32"
+              autoFocus
+            />
+          </div>
+        )}
       </div>
     </div>
   );

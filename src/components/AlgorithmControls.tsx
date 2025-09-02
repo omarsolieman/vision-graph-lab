@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -6,9 +6,17 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Play, Pause, Square, RotateCcw, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { GraphData, AlgorithmStep } from "@/lib/graph-types";
+import { AlgorithmRunner, getAlgorithmCode } from "@/lib/algorithms";
+import { CodeVisualization } from "./CodeVisualization";
 
 type Algorithm = 'bfs' | 'dfs' | 'dijkstra' | 'bellman-ford' | 'prim' | 'kruskal';
 type ExecutionState = 'idle' | 'running' | 'paused' | 'completed';
+
+interface AlgorithmControlsProps {
+  graphData: GraphData;
+  setGraphData: React.Dispatch<React.SetStateAction<GraphData>>;
+}
 
 const algorithms = {
   'bfs': 'Breadth-First Search',
@@ -19,7 +27,7 @@ const algorithms = {
   'kruskal': 'Kruskal\'s Algorithm (MST)'
 };
 
-export const AlgorithmControls = () => {
+export const AlgorithmControls = ({ graphData, setGraphData }: AlgorithmControlsProps) => {
   const [selectedAlgorithm, setSelectedAlgorithm] = useState<Algorithm>('bfs');
   const [executionState, setExecutionState] = useState<ExecutionState>('idle');
   const [speed, setSpeed] = useState([50]);
@@ -27,9 +35,33 @@ export const AlgorithmControls = () => {
   const [endNode, setEndNode] = useState<string>('');
   const [currentStep, setCurrentStep] = useState(0);
   const [totalSteps, setTotalSteps] = useState(0);
+  const [algorithmSteps, setAlgorithmSteps] = useState<AlgorithmStep[]>([]);
+  const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
-  const handlePlay = () => {
+  const resetGraphState = () => {
+    setGraphData({
+      ...graphData,
+      nodes: graphData.nodes.map(node => ({ ...node, state: 'default', distance: undefined })),
+      edges: graphData.edges.map(edge => ({ ...edge, isActive: false }))
+    });
+  };
+
+  const applyStep = (step: AlgorithmStep) => {
+    setGraphData(prev => ({
+      ...prev,
+      nodes: prev.nodes.map(node => {
+        const update = step.nodeUpdates?.find(u => u.id === node.id);
+        return update ? { ...node, ...update } : node;
+      }),
+      edges: prev.edges.map(edge => {
+        const update = step.edgeUpdates?.find(u => u.id === edge.id);
+        return update ? { ...edge, ...update } : edge;
+      })
+    }));
+  };
+
+  const handlePlay = async () => {
     if (!selectedAlgorithm) {
       toast({
         title: "No Algorithm Selected",
@@ -39,39 +71,163 @@ export const AlgorithmControls = () => {
       return;
     }
 
-    if (executionState === 'idle' || executionState === 'completed') {
-      setExecutionState('running');
-      setCurrentStep(0);
-      setTotalSteps(10); // This would be calculated based on the algorithm
-      
+    if (graphData.nodes.length === 0) {
       toast({
-        title: "Algorithm Started",
-        description: `Running ${algorithms[selectedAlgorithm]}`,
+        title: "Empty Graph",
+        description: "Please add some nodes to visualize",
+        variant: "destructive"
       });
+      return;
+    }
+
+    if (executionState === 'idle' || executionState === 'completed') {
+      resetGraphState();
+      
+      const runner = new AlgorithmRunner(graphData);
+      let execution;
+      
+      try {
+        if (selectedAlgorithm === 'bfs') {
+          const start = startNode || graphData.nodes[0].id;
+          execution = await runner.runBFS(start);
+        } else if (selectedAlgorithm === 'dijkstra') {
+          const start = startNode || graphData.nodes[0].id;
+          execution = await runner.runDijkstra(start);
+        } else {
+          toast({
+            title: "Algorithm Not Implemented",
+            description: `${algorithms[selectedAlgorithm]} is coming soon!`,
+            variant: "destructive"
+          });
+          return;
+        }
+
+        setAlgorithmSteps(execution.steps);
+        setTotalSteps(execution.steps.length);
+        setCurrentStep(0);
+        setExecutionState('running');
+        
+        toast({
+          title: "Algorithm Started",
+          description: `Running ${algorithms[selectedAlgorithm]}`,
+        });
+
+        // Start step-by-step execution
+        const stepInterval = setInterval(() => {
+          setCurrentStep(prev => {
+            const nextStep = prev + 1;
+            
+            if (nextStep < execution.steps.length) {
+              applyStep(execution.steps[nextStep]);
+              return nextStep;
+            } else {
+              setExecutionState('completed');
+              clearInterval(stepInterval);
+              setIntervalId(null);
+              return prev;
+            }
+          });
+        }, Math.max(100, 2000 - (speed[0] * 19)));
+        
+        setIntervalId(stepInterval);
+        
+      } catch (error) {
+        toast({
+          title: "Algorithm Error",
+          description: "Failed to run algorithm",
+          variant: "destructive"
+        });
+      }
     } else if (executionState === 'paused') {
       setExecutionState('running');
+      
+      const stepInterval = setInterval(() => {
+        setCurrentStep(prev => {
+          const nextStep = prev + 1;
+          
+          if (nextStep < algorithmSteps.length) {
+            applyStep(algorithmSteps[nextStep]);
+            return nextStep;
+          } else {
+            setExecutionState('completed');
+            clearInterval(stepInterval);
+            setIntervalId(null);
+            return prev;
+          }
+        });
+      }, Math.max(100, 2000 - (speed[0] * 19)));
+      
+      setIntervalId(stepInterval);
     }
   };
 
   const handlePause = () => {
-    if (executionState === 'running') {
+    if (executionState === 'running' && intervalId) {
+      clearInterval(intervalId);
+      setIntervalId(null);
       setExecutionState('paused');
     }
   };
 
   const handleStop = () => {
+    if (intervalId) {
+      clearInterval(intervalId);
+      setIntervalId(null);
+    }
     setExecutionState('idle');
     setCurrentStep(0);
     setTotalSteps(0);
+    setAlgorithmSteps([]);
+    resetGraphState();
   };
 
   const handleReset = () => {
+    if (intervalId) {
+      clearInterval(intervalId);
+      setIntervalId(null);
+    }
     setExecutionState('idle');
     setCurrentStep(0);
     setTotalSteps(0);
+    setAlgorithmSteps([]);
     setStartNode('');
     setEndNode('');
+    resetGraphState();
   };
+
+  // Update interval speed when speed changes
+  useEffect(() => {
+    if (intervalId && executionState === 'running') {
+      clearInterval(intervalId);
+      
+      const newInterval = setInterval(() => {
+        setCurrentStep(prev => {
+          const nextStep = prev + 1;
+          
+          if (nextStep < algorithmSteps.length) {
+            applyStep(algorithmSteps[nextStep]);
+            return nextStep;
+          } else {
+            setExecutionState('completed');
+            clearInterval(newInterval);
+            setIntervalId(null);
+            return prev;
+          }
+        });
+      }, Math.max(100, 2000 - (speed[0] * 19)));
+      
+      setIntervalId(newInterval);
+    }
+  }, [speed]);
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [intervalId]);
 
   const getAlgorithmDescription = (algorithm: Algorithm) => {
     const descriptions = {
@@ -118,7 +274,7 @@ export const AlgorithmControls = () => {
             {getAlgorithmDescription(selectedAlgorithm)}
           </div>
 
-          {needsStartNode && (
+          {needsStartNode && graphData.nodes.length > 0 && (
             <div>
               <label className="text-sm font-medium mb-2 block">Start Node</label>
               <Select value={startNode} onValueChange={setStartNode}>
@@ -126,15 +282,17 @@ export const AlgorithmControls = () => {
                   <SelectValue placeholder="Select start node" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="A">Node A</SelectItem>
-                  <SelectItem value="B">Node B</SelectItem>
-                  <SelectItem value="C">Node C</SelectItem>
+                  {graphData.nodes.map(node => (
+                    <SelectItem key={node.id} value={node.id}>
+                      Node {node.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           )}
 
-          {needsEndNode && (
+          {needsEndNode && graphData.nodes.length > 0 && (
             <div>
               <label className="text-sm font-medium mb-2 block">End Node</label>
               <Select value={endNode} onValueChange={setEndNode}>
@@ -142,9 +300,11 @@ export const AlgorithmControls = () => {
                   <SelectValue placeholder="Select end node" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="A">Node A</SelectItem>
-                  <SelectItem value="B">Node B</SelectItem>
-                  <SelectItem value="C">Node C</SelectItem>
+                  {graphData.nodes.map(node => (
+                    <SelectItem key={node.id} value={node.id}>
+                      Node {node.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -264,6 +424,15 @@ export const AlgorithmControls = () => {
           </div>
         </CardContent>
       </Card>
+
+      {algorithmSteps.length > 0 && (
+        <CodeVisualization
+          algorithm={selectedAlgorithm}
+          codeLines={getAlgorithmCode(selectedAlgorithm)}
+          currentLine={algorithmSteps[currentStep]?.codeLine || 0}
+          currentStep={algorithmSteps[currentStep]?.description || 'Ready to start'}
+        />
+      )}
     </div>
   );
 };

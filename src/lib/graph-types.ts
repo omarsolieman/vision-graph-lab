@@ -25,6 +25,7 @@ export interface GraphData {
 export interface AlgorithmStep {
   id: number;
   description: string;
+  codeLine: number;
   nodeUpdates?: Partial<GraphNode>[];
   edgeUpdates?: Partial<GraphEdge>[];
   highlightNodes?: string[];

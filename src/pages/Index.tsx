@@ -3,11 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { GraphCanvas } from "@/components/GraphCanvas";
 import { AlgorithmControls } from "@/components/AlgorithmControls";
+import { GraphData } from "@/lib/graph-types";
 import { Play, Pause, RotateCcw, Zap } from "lucide-react";
 import graphHero from "@/assets/graph-hero.jpg";
 
 const Index = () => {
   const [isVisualizationMode, setIsVisualizationMode] = useState(false);
+  const [graphData, setGraphData] = useState<GraphData>({ nodes: [], edges: [] });
 
   if (isVisualizationMode) {
     return (
@@ -29,11 +31,11 @@ const Index = () => {
         
         <div className="flex h-[calc(100vh-73px)]">
           <aside className="w-80 border-r border-border bg-card/50 p-4">
-            <AlgorithmControls />
+            <AlgorithmControls graphData={graphData} setGraphData={setGraphData} />
           </aside>
           
           <main className="flex-1">
-            <GraphCanvas />
+            <GraphCanvas graphData={graphData} setGraphData={setGraphData} />
           </main>
         </div>
       </div>
