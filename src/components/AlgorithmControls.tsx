@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
-import { Play, Pause, Square, RotateCcw, Settings } from "lucide-react";
+import { Play, Pause, Square, RotateCcw, Settings, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { GraphData, AlgorithmStep } from "@/lib/graph-types";
 import { AlgorithmRunner, getAlgorithmCode } from "@/lib/algorithms";
@@ -25,6 +25,8 @@ interface AlgorithmControlsProps {
   currentStep: number;
   setCurrentStep: React.Dispatch<React.SetStateAction<number>>;
   setAlgorithmExecution?: (exec: any) => void;
+  isDirected: boolean;
+  setIsDirected: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const algorithms = {
@@ -45,10 +47,13 @@ export const AlgorithmControls = ({
   setAlgorithmSteps,
   currentStep,
   setCurrentStep,
-  setAlgorithmExecution
+  setAlgorithmExecution,
+  isDirected,
+  setIsDirected
 }: AlgorithmControlsProps) => {
   const [executionState, setExecutionState] = useState<ExecutionState>('idle');
   const [speed, setSpeed] = useState([50]);
+  const [stepMode, setStepMode] = useState(false); // step-through toggle
   const [startNode, setStartNode] = useState<string>('');
   const [endNode, setEndNode] = useState<string>('');
   const [totalSteps, setTotalSteps] = useState(0);
@@ -78,6 +83,7 @@ export const AlgorithmControls = ({
   };
 
   const handlePlay = async () => {
+    if (stepMode) return; // Don't auto-play in step mode
     if (!selectedAlgorithm) {
       toast({
         title: "No Algorithm Selected",
@@ -187,6 +193,7 @@ export const AlgorithmControls = ({
   };
 
   const handlePause = () => {
+    if (stepMode) return;
     if (executionState === 'running' && intervalId) {
       clearInterval(intervalId);
       setIntervalId(null);
@@ -195,6 +202,7 @@ export const AlgorithmControls = ({
   };
 
   const handleStop = () => {
+    if (stepMode) return;
     if (intervalId) {
       clearInterval(intervalId);
       setIntervalId(null);
@@ -207,6 +215,7 @@ export const AlgorithmControls = ({
   };
 
   const handleReset = () => {
+    if (stepMode) return;
     if (intervalId) {
       clearInterval(intervalId);
       setIntervalId(null);
@@ -284,7 +293,27 @@ export const AlgorithmControls = ({
             <label className="text-sm font-medium mb-2 block">Choose Template Graph</label>
             <Select onValueChange={val => {
               const template = graphTemplates.find(t => t.name === val);
-              if (template) setGraphData(JSON.parse(JSON.stringify(template.data)));
+              if (template) {
+                // Assign default positions if missing
+                const N = template.data.nodes.length;
+                const centerX = 600, centerY = 400, radius = 250;
+                const nodesWithPos = template.data.nodes.map((node, i) =>
+                  (node.x !== undefined && node.y !== undefined)
+                    ? node
+                    : {
+                        ...node,
+                        x: centerX + radius * Math.cos((2 * Math.PI * i) / N),
+                        y: centerY + radius * Math.sin((2 * Math.PI * i) / N)
+                      }
+                );
+                setGraphData({
+                  nodes: nodesWithPos,
+                  edges: template.data.edges.map(e => ({ ...e }))
+                });
+                if (typeof setIsDirected === 'function' && typeof template.isDirected === 'boolean') {
+                  setIsDirected(template.isDirected);
+                }
+              }
             }}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a template graph (optional)" />
@@ -361,66 +390,189 @@ export const AlgorithmControls = ({
           <CardTitle>Visualization Controls</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Button 
-              variant="algorithm" 
-              size="sm" 
-              onClick={handlePlay}
-              disabled={executionState === 'running'}
-            >
-              <Play className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="algorithm" 
-              size="sm" 
-              onClick={handlePause}
-              disabled={executionState !== 'running'}
-            >
-              <Pause className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="algorithm" 
-              size="sm" 
-              onClick={handleStop}
-              disabled={executionState === 'idle'}
-            >
-              <Square className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="algorithm" 
-              size="sm" 
-              onClick={handleReset}
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium mb-2 block">Speed: {speed[0]}%</label>
-            <Slider
-              value={speed}
-              onValueChange={setSpeed}
-              max={100}
-              min={1}
-              step={1}
-              className="w-full"
-            />
-          </div>
-
-          {executionState !== 'idle' && (
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Progress</span>
-                <span>{currentStep}/{totalSteps}</span>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div 
-                  className="bg-primary h-2 rounded-full transition-all duration-300" 
-                  style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3 mb-1">
+              <span className="font-medium text-xs">Step-through</span>
+              <button
+                type="button"
+                className={`relative w-10 h-6 rounded-full transition-colors duration-200 focus:outline-none ${stepMode ? 'bg-primary' : 'bg-muted'}`}
+                onClick={() => setStepMode(v => !v)}
+                aria-pressed={stepMode}
+                tabIndex={0}
+              >
+                <span
+                  className={`absolute left-1 top-1 w-4 h-4 rounded-full bg-background shadow transition-transform duration-200 ${stepMode ? 'translate-x-4' : ''}`}
+                  style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}
                 />
-              </div>
+              </button>
             </div>
-          )}
+            <div className="flex gap-2 items-center">
+              {stepMode ? (
+                <>
+                  {algorithmSteps.length === 0 ? (
+                    <Button
+                      variant="algorithm"
+                      size="sm"
+                      onClick={async () => {
+                        // Generate steps as in handlePlay, but don't auto-play
+                        if (!selectedAlgorithm || graphData.nodes.length === 0) return;
+                        resetGraphState();
+                        const runner = new AlgorithmRunner(graphData);
+                        let execution;
+                        try {
+                          if (selectedAlgorithm === 'bfs') {
+                            const start = startNode || graphData.nodes[0].id;
+                            execution = await runner.runBFS(start);
+                          } else if (selectedAlgorithm === 'dijkstra') {
+                            const start = startNode || graphData.nodes[0].id;
+                            execution = await runner.runDijkstra(start);
+                          } else if (selectedAlgorithm === 'prim') {
+                            const start = startNode || graphData.nodes[0].id;
+                            execution = await runner.runPrims(start);
+                          } else if (selectedAlgorithm === 'kruskal') {
+                            execution = await runner.runKruskals();
+                          } else if (selectedAlgorithm === 'bellman-ford') {
+                            const start = startNode || graphData.nodes[0].id;
+                            execution = await runner.runBellmanFord(start);
+                          } else {
+                            toast({ title: "Algorithm Not Implemented", description: `${algorithms[selectedAlgorithm]} is coming soon!`, variant: "destructive" });
+                            return;
+                          }
+                          setAlgorithmSteps(execution.steps);
+                          setTotalSteps(execution.steps.length);
+                          setCurrentStep(0);
+                          if (execution.steps.length > 0) applyStep(execution.steps[0]);
+                          if (typeof setAlgorithmExecution === 'function') setAlgorithmExecution(execution);
+                        } catch (error) {
+                          toast({ title: "Algorithm Error", description: "Failed to run algorithm", variant: "destructive" });
+                        }
+                      }}
+                      disabled={graphData.nodes.length === 0 || !selectedAlgorithm}
+                      title="Start Step-Through"
+                    >
+                      <Play className="h-4 w-4" /> Start
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        variant="algorithm"
+                        size="sm"
+                        onClick={() => {
+                          setCurrentStep(0);
+                          if (algorithmSteps.length > 0) applyStep(algorithmSteps[0]);
+                        }}
+                        disabled={currentStep === 0}
+                        title="Go to First Step"
+                      >
+                        <Square className="h-4 w-4 rotate-45" />
+                      </Button>
+                      <Button
+                        variant="algorithm"
+                        size="sm"
+                        onClick={() => {
+                          if (currentStep > 0) {
+                            setCurrentStep(currentStep - 1);
+                            applyStep(algorithmSteps[currentStep - 1]);
+                          }
+                        }}
+                        disabled={currentStep === 0}
+                        title="Previous Step"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="algorithm"
+                        size="sm"
+                        onClick={() => {
+                          if (currentStep < algorithmSteps.length - 1) {
+                            setCurrentStep(currentStep + 1);
+                            applyStep(algorithmSteps[currentStep + 1]);
+                          }
+                        }}
+                        disabled={currentStep >= algorithmSteps.length - 1}
+                        title="Next Step"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="algorithm"
+                        size="sm"
+                        onClick={() => {
+                          setCurrentStep(algorithmSteps.length - 1);
+                          if (algorithmSteps.length > 0) applyStep(algorithmSteps[algorithmSteps.length - 1]);
+                        }}
+                        disabled={currentStep === algorithmSteps.length - 1}
+                        title="Go to Last Step"
+                      >
+                        <Square className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Button 
+                    variant="algorithm" 
+                    size="sm" 
+                    onClick={handlePlay}
+                    disabled={executionState === 'running'}
+                  >
+                    <Play className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="algorithm" 
+                    size="sm" 
+                    onClick={handlePause}
+                    disabled={executionState !== 'running'}
+                  >
+                    <Pause className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="algorithm" 
+                    size="sm" 
+                    onClick={handleStop}
+                    disabled={executionState === 'idle'}
+                  >
+                    <Square className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="algorithm" 
+                    size="sm" 
+                    onClick={handleReset}
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Speed: {speed[0]}%</label>
+              <Slider
+                value={speed}
+                onValueChange={setSpeed}
+                max={100}
+                min={1}
+                step={1}
+                className="w-full"
+              />
+            </div>
+
+            {executionState !== 'idle' && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Progress</span>
+                  <span>{currentStep}/{totalSteps}</span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div 
+                    className="bg-primary h-2 rounded-full transition-all duration-300" 
+                    style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 

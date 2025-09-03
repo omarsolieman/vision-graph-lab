@@ -10,6 +10,7 @@ import { GraphData } from "@/lib/graph-types";
 import { Play, Pause, RotateCcw, Zap } from "lucide-react";
 import graphHero from "@/assets/graph-hero.jpg";
 
+
 const Index = () => {
   const [isVisualizationMode, setIsVisualizationMode] = useState(false);
   const [graphData, setGraphData] = useState<GraphData>({ nodes: [], edges: [] });
@@ -19,6 +20,7 @@ const Index = () => {
   const [algorithmExecution, setAlgorithmExecution] = useState<any>(null);
   const [algorithmSteps, setAlgorithmSteps] = useState<any[]>([]);
   const [currentStep, setCurrentStep] = useState<number>(0);
+  const [isDirected, setIsDirected] = useState(false); // Default: undirected
 
   if (isVisualizationMode) {
     return (
@@ -52,11 +54,13 @@ const Index = () => {
               currentStep={currentStep}
               setCurrentStep={setCurrentStep}
               setAlgorithmExecution={setAlgorithmExecution}
+              isDirected={isDirected}
+              setIsDirected={setIsDirected}
             />
           </aside>
           <main className="flex-1 flex">
             <div className="flex-1 flex flex-col">
-              <GraphCanvas graphData={graphData} setGraphData={setGraphData} />
+              <GraphCanvas graphData={graphData} setGraphData={setGraphData} isDirected={isDirected} setIsDirected={setIsDirected} />
               {/* Data Panel below the graph, or you can use flex-row to place it beside */}
               <AlgorithmDataPanel
                 data={{
@@ -88,19 +92,24 @@ const Index = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {algorithmExecution.operationLog.map((entry, i) => (
-                          <tr key={i} className={i % 2 === 0 ? '' : 'bg-muted/10'}>
-                            <td className="px-2 py-1 border-b">{entry.iteration}</td>
-                            <td className="px-2 py-1 border-b">{entry.operation}</td>
-                            <td className="px-2 py-1 border-b">{entry.nodesVisited?.join(', ')}</td>
-                            <td className="px-2 py-1 border-b">{entry.queue?.join(', ')}</td>
-                            <td className="px-2 py-1 border-b">{entry.stack?.join(', ')}</td>
-                            <td className="px-2 py-1 border-b">{entry.result?.join(', ')}</td>
-                            <td className="px-2 py-1 border-b">{entry.matrix ? JSON.stringify(entry.matrix) : ''}</td>
-                            <td className="px-2 py-1 border-b">{entry.list?.join(', ')}</td>
-                            <td className="px-2 py-1 border-b">{entry.array?.join(', ')}</td>
-                          </tr>
-                        ))}
+                        {algorithmExecution.operationLog.map((entry, i) => {
+                          // Build node label map
+                          const nodeLabelMap = Object.fromEntries(graphData.nodes.map(n => [n.id, n.label]));
+                          const mapIds = (arr) => Array.isArray(arr) ? arr.map(id => nodeLabelMap[id] || id).join(', ') : '';
+                          return (
+                            <tr key={i} className={i % 2 === 0 ? '' : 'bg-muted/10'}>
+                              <td className="px-2 py-1 border-b">{entry.iteration}</td>
+                              <td className="px-2 py-1 border-b">{entry.operation}</td>
+                              <td className="px-2 py-1 border-b">{mapIds(entry.nodesVisited)}</td>
+                              <td className="px-2 py-1 border-b">{mapIds(entry.queue)}</td>
+                              <td className="px-2 py-1 border-b">{mapIds(entry.stack)}</td>
+                              <td className="px-2 py-1 border-b">{mapIds(entry.result)}</td>
+                              <td className="px-2 py-1 border-b">{entry.matrix ? JSON.stringify(entry.matrix) : ''}</td>
+                              <td className="px-2 py-1 border-b">{mapIds(entry.list)}</td>
+                              <td className="px-2 py-1 border-b">{mapIds(entry.array)}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

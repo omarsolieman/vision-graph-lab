@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { MousePointer2, Plus, Minus } from "lucide-react";
+import { MousePointer2, Plus, Minus, ArrowRightLeft } from "lucide-react";
 import { GraphNode, GraphEdge, GraphData } from "@/lib/graph-types";
 import { useToast } from "@/hooks/use-toast";
 
@@ -11,9 +11,11 @@ type Tool = 'select' | 'add-node' | 'add-edge';
 interface GraphCanvasProps {
   graphData: GraphData;
   setGraphData: React.Dispatch<React.SetStateAction<GraphData>>;
+  isDirected: boolean;
+  setIsDirected: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-export const GraphCanvas = ({ graphData, setGraphData }: GraphCanvasProps) => {
+export const GraphCanvas = ({ graphData, setGraphData, isDirected, setIsDirected }: GraphCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [tool, setTool] = useState<Tool>('select');
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
@@ -75,6 +77,31 @@ export const GraphCanvas = ({ graphData, setGraphData }: GraphCanvasProps) => {
         ctx.lineTo(targetNode.x, targetNode.y);
         ctx.stroke();
 
+        // Draw arrow for directed graphs
+        if (isDirected) {
+          // Arrowhead size and angle
+          const arrowLength = 18;
+          const arrowWidth = 7;
+          const dx = targetNode.x - sourceNode.x;
+          const dy = targetNode.y - sourceNode.y;
+          const angle = Math.atan2(dy, dx);
+          // Arrow tip position (move back by node radius)
+          const tipX = targetNode.x - Math.cos(angle) * nodeRadius;
+          const tipY = targetNode.y - Math.sin(angle) * nodeRadius;
+          // Arrow base points
+          const leftX = tipX - arrowLength * Math.cos(angle) + arrowWidth * Math.sin(angle);
+          const leftY = tipY - arrowLength * Math.sin(angle) - arrowWidth * Math.cos(angle);
+          const rightX = tipX - arrowLength * Math.cos(angle) - arrowWidth * Math.sin(angle);
+          const rightY = tipY - arrowLength * Math.sin(angle) + arrowWidth * Math.cos(angle);
+          ctx.fillStyle = edge.isActive ? 'hsl(48 96% 60%)' : 'hsl(210 40% 50%)';
+          ctx.beginPath();
+          ctx.moveTo(tipX, tipY);
+          ctx.lineTo(leftX, leftY);
+          ctx.lineTo(rightX, rightY);
+          ctx.closePath();
+          ctx.fill();
+        }
+
         // Draw weight if exists
         if (edge.weight !== undefined) {
           const midX = (sourceNode.x + targetNode.x) / 2;
@@ -102,7 +129,7 @@ export const GraphCanvas = ({ graphData, setGraphData }: GraphCanvasProps) => {
       
       if (node.state === 'visited') fillColor = 'hsl(142 76% 60%)';
       else if (node.state === 'current') fillColor = 'hsl(48 96% 60%)';
-      else if (node.state === 'path') fillColor = 'hsl(262 83% 70%)';
+      else if (node.state === 'error') fillColor = 'hsl(0 80% 60%)';
       
       if (node.id === selectedNode) {
         // Draw selection ring
@@ -214,12 +241,12 @@ export const GraphCanvas = ({ graphData, setGraphData }: GraphCanvasProps) => {
         setIsDrawingEdge(true);
         setSelectedNode(clickedNode.id);
       } else if (edgeStart && clickedNode.id !== edgeStart) {
-        // Check if edge already exists
-        const edgeExists = graphData.edges.some(edge => 
-          (edge.source === edgeStart && edge.target === clickedNode.id) ||
-          (edge.source === clickedNode.id && edge.target === edgeStart)
+        // For directed, only check source->target; for undirected, check both directions
+        const edgeExists = graphData.edges.some(edge =>
+          isDirected
+            ? (edge.source === edgeStart && edge.target === clickedNode.id)
+            : ((edge.source === edgeStart && edge.target === clickedNode.id) || (edge.source === clickedNode.id && edge.target === edgeStart))
         );
-        
         if (!edgeExists) {
           const newEdge: GraphEdge = {
             id: `edge-${Date.now()}`,
@@ -228,18 +255,17 @@ export const GraphCanvas = ({ graphData, setGraphData }: GraphCanvasProps) => {
             weight: Math.floor(Math.random() * 10) + 1,
             isActive: false
           };
-          
           setGraphData(prev => ({
             ...prev,
             edges: [...prev.edges, newEdge]
           }));
-          
           toast({
             title: "Edge Added",
-            description: `Connected nodes with weight ${newEdge.weight}`,
+            description: isDirected
+              ? `Directed edge from ${edgeStart} to ${clickedNode.id} (weight ${newEdge.weight})`
+              : `Edge between ${edgeStart} and ${clickedNode.id} (weight ${newEdge.weight})`,
           });
         }
-        
         setIsDrawingEdge(false);
         setEdgeStart(null);
         setSelectedNode(null);
@@ -332,6 +358,17 @@ export const GraphCanvas = ({ graphData, setGraphData }: GraphCanvasProps) => {
               <Minus className="h-4 w-4 mr-2" />
               Add Edge
             </Button>
+            {/* Directed/Undirected Toggle */}
+            <label className="flex items-center gap-1 ml-2 cursor-pointer select-none text-xs">
+              <input
+                type="checkbox"
+                checked={isDirected}
+                onChange={e => setIsDirected(e.target.checked)}
+                className="accent-primary"
+              />
+              <ArrowRightLeft className="h-4 w-4" />
+              {isDirected ? 'Directed' : 'Undirected'}
+            </label>
           </div>
           
           <div className="flex items-center gap-4">

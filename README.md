@@ -41,6 +41,10 @@
   - [📜 License](#-license)
     - [📌 Tags](#-tags)
     - [🖼️ Preview Screenshot](#️-preview-screenshot)
+  - [🚀 Major Updates (3/9/2025)](#-major-updates-392025)
+    - [🆕 Step-Through Mode](#-step-through-mode)
+    - [🆕 Graph Templates](#-graph-templates)
+    - [🆕 Directed \& Undirected Graphs](#-directed--undirected-graphs)
 
 ---
 
@@ -174,5 +178,22 @@ This project is licensed under the **MIT License**. See the [LICENSE](./LICENSE)
 ### 🖼️ Preview Screenshot
 
 *(Add screenshot here)*
+
+---
+
+## 🚀 Major Updates (3/9/2025)
+
+### 🆕 Step-Through Mode
+- **Manually control algorithm execution**: Step forward and backward through each algorithm step at your own pace.
+- **Start, stop, and navigate**: Use dedicated controls to start, stop, and move through steps interactively.
+
+### 🆕 Graph Templates
+- **Quickly load example graphs**: Choose from a variety of built-in graph templates (cycles, trees, DAGs, bipartite, etc.).
+- **Auto-layout**: Templates are auto-positioned for clear visualization.
+
+### 🆕 Directed & Undirected Graphs
+- **Toggle between directed and undirected modes**: Easily switch graph type with a visual toggle.
+- **Arrow rendering**: Directed edges are shown with arrows; undirected edges are plain lines.
+- **Templates support direction**: Each template loads with its intended directed/undirected setting.
 
 ---
