@@ -205,7 +205,7 @@ const Index = () => {
             Supported Algorithms
           </h2>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card className="bg-gradient-card border-border/50 hover:border-primary/20 transition-colors">
               <CardHeader>
                 <CardTitle className="text-accent">Graph Traversal</CardTitle>
@@ -250,6 +250,20 @@ const Index = () => {
                   <li>• Prim's Algorithm</li>
                   <li>• Kruskal's Algorithm</li>
                   <li>• Borůvka's Algorithm</li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-card border-border/50 hover:border-primary/20 transition-colors">
+              <CardHeader>
+                <CardTitle className="text-accent">Network Flow</CardTitle>
+                <CardDescription>
+                  Analyze flow through networks
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  <li>• Ford-Fulkerson (Max Flow)</li>
                 </ul>
               </CardContent>
             </Card>
