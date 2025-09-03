@@ -4,6 +4,19 @@ export interface AlgorithmExecution {
   steps: AlgorithmStep[];
   currentStep: number;
   isComplete: boolean;
+  operationLog?: OperationLogEntry[];
+}
+
+export interface OperationLogEntry {
+  iteration: number;
+  operation: string;
+  nodesVisited: string[];
+  queue?: string[];
+  stack?: string[];
+  result?: string[];
+  matrix?: Record<string, any>;
+  list?: string[];
+  array?: string[];
 }
 
 export const getAlgorithmCode = (algorithm: string): string[] => {
@@ -124,6 +137,7 @@ export const getAlgorithmCode = (algorithm: string): string[] => {
 };
 
 export class AlgorithmRunner {
+  private operationLog: OperationLogEntry[] = [];
   private graphData: GraphData;
   private steps: AlgorithmStep[] = [];
   private currentStep = 0;
@@ -140,6 +154,22 @@ export class AlgorithmRunner {
       nodeUpdates: updates.nodeUpdates || [],
       edgeUpdates: updates.edgeUpdates || [],
       ...updates
+    });
+    // Build operation log entry for this step, always using node labels
+    const nodesVisited = this.steps
+      .flatMap(s => s.nodeUpdates?.filter(nu => nu.state === 'visited').map(nu => this.getNodeLabel(nu.id)) || [])
+      .filter((v, i, arr) => arr.indexOf(v) === i);
+    const mapLabels = (arr?: string[]) => arr ? arr.map(id => this.getNodeLabel(id)) : undefined;
+    this.operationLog.push({
+      iteration: id,
+      operation: description,
+      nodesVisited,
+      queue: mapLabels(updates.queue),
+      stack: mapLabels(updates.stack),
+      result: mapLabels(updates.result),
+      matrix: updates.matrix,
+      list: mapLabels(updates.list),
+      array: mapLabels(updates.array),
     });
   }
 
@@ -161,7 +191,8 @@ export class AlgorithmRunner {
     return {
       steps: this.steps,
       currentStep: 0,
-      isComplete: false
+      isComplete: false,
+      operationLog: this.operationLog
     };
   }
 
@@ -169,13 +200,17 @@ export class AlgorithmRunner {
 
   async runBFS(startNodeId: string): Promise<AlgorithmExecution> {
     this.steps = [];
+    this.operationLog = [];
     const visited = new Set<string>();
     const queue: string[] = [startNodeId];
+    const visitOrder: string[] = [];
     let stepId = 0;
 
     this.addStep(stepId++, 'Initialize BFS', 1, {
       nodeUpdates: [{ id: startNodeId, state: 'current' }],
-      description: `Starting BFS from node ${this.getNodeLabel(startNodeId)}`
+      description: `Starting BFS from node ${this.getNodeLabel(startNodeId)}`,
+      queue: queue.map(id => this.getNodeLabel(id)),
+      result: visitOrder.map(id => this.getNodeLabel(id))
     });
 
     while (queue.length > 0) {
@@ -183,15 +218,20 @@ export class AlgorithmRunner {
       
       if (visited.has(currentId)) {
         this.addStep(stepId++, 'Node already visited', 6, {
-          description: `Node ${this.getNodeLabel(currentId)} already visited, skipping.`
+          description: `Node ${this.getNodeLabel(currentId)} already visited, skipping.`,
+          queue: queue.map(id => this.getNodeLabel(id)),
+          result: visitOrder.map(id => this.getNodeLabel(id))
         });
         continue;
       }
 
       visited.add(currentId);
+      visitOrder.push(currentId);
       this.addStep(stepId++, 'Visit node', 7, {
         nodeUpdates: [{ id: currentId, state: 'visited' }],
-        description: `Visited node ${this.getNodeLabel(currentId)}`
+        description: `Visited node ${this.getNodeLabel(currentId)}`,
+        queue: queue.map(id => this.getNodeLabel(id)),
+        result: visitOrder.map(id => this.getNodeLabel(id))
       });
       
       for (const neighborId of this.getNeighbors(currentId)) {
@@ -200,14 +240,22 @@ export class AlgorithmRunner {
           this.addStep(stepId++, 'Enqueue neighbor', 10, {
             nodeUpdates: [{ id: neighborId, state: 'current' }],
             edgeUpdates: [{ source: currentId, target: neighborId, isActive: true }],
-            description: `Added ${this.getNodeLabel(neighborId)} to queue`
+            description: `Added ${this.getNodeLabel(neighborId)} to queue`,
+            queue: queue.map(id => this.getNodeLabel(id)),
+            result: visitOrder.map(id => this.getNodeLabel(id))
           });
         }
       }
+      // Always add a step to show the queue state after each iteration
+      this.addStep(stepId++, 'Queue State', 2, {
+        queue: queue.map(id => this.getNodeLabel(id)),
+        result: visitOrder.map(id => this.getNodeLabel(id))
+      });
     }
 
     this.addStep(stepId++, 'BFS Complete', 11, {
-      description: 'Algorithm finished: all reachable nodes visited.'
+      description: 'Algorithm finished: all reachable nodes visited.',
+      result: visitOrder.map(id => this.getNodeLabel(id))
     });
 
     return this.createDefaultExecution();
@@ -215,13 +263,15 @@ export class AlgorithmRunner {
 
   async runDFS(startNodeId: string): Promise<AlgorithmExecution> {
     this.steps = [];
+    this.operationLog = [];
     const visited = new Set<string>();
     const stack: string[] = [startNodeId];
     let stepId = 0;
 
     this.addStep(stepId++, 'Initialize DFS', 1, {
       nodeUpdates: [{ id: startNodeId, state: 'current' }],
-      description: `Starting DFS from node ${this.getNodeLabel(startNodeId)}`
+      description: `Starting DFS from node ${this.getNodeLabel(startNodeId)}`,
+      stack: stack.map(id => this.getNodeLabel(id))
     });
 
     while (stack.length > 0) {
@@ -229,7 +279,8 @@ export class AlgorithmRunner {
       
       if (visited.has(currentId)) {
         this.addStep(stepId++, 'Node already visited', 6, {
-          description: `Node ${this.getNodeLabel(currentId)} already visited, skipping.`
+          description: `Node ${this.getNodeLabel(currentId)} already visited, skipping.`,
+          stack: stack.map(id => this.getNodeLabel(id))
         });
         continue;
       }
@@ -237,7 +288,8 @@ export class AlgorithmRunner {
       visited.add(currentId);
       this.addStep(stepId++, 'Visit node', 7, {
         nodeUpdates: [{ id: currentId, state: 'visited' }],
-        description: `Visited node ${this.getNodeLabel(currentId)}`
+        description: `Visited node ${this.getNodeLabel(currentId)}`,
+        stack: stack.map(id => this.getNodeLabel(id))
       });
       
       for (const neighborId of this.getNeighbors(currentId)) {
@@ -246,14 +298,20 @@ export class AlgorithmRunner {
           this.addStep(stepId++, 'Push neighbor to stack', 10, {
             nodeUpdates: [{ id: neighborId, state: 'current' }],
             edgeUpdates: [{ source: currentId, target: neighborId, isActive: true }],
-            description: `Added ${this.getNodeLabel(neighborId)} to stack`
+            description: `Added ${this.getNodeLabel(neighborId)} to stack`,
+            stack: stack.map(id => this.getNodeLabel(id))
           });
         }
       }
+      // Always add a step to show the stack state after each iteration
+      this.addStep(stepId++, 'Stack State', 2, {
+        stack: stack.map(id => this.getNodeLabel(id))
+      });
     }
 
     this.addStep(stepId++, 'DFS Complete', 11, {
-      description: 'Algorithm finished: all reachable nodes visited.'
+      description: 'Algorithm finished: all reachable nodes visited.',
+      stack: stack.map(id => this.getNodeLabel(id))
     });
 
     return this.createDefaultExecution();
@@ -264,6 +322,7 @@ export class AlgorithmRunner {
 
   async runDijkstra(startNodeId: string): Promise<AlgorithmExecution> {
     this.steps = [];
+    this.operationLog = [];
     const distances: Record<string, number> = {};
     const visited = new Set<string>();
     const pq: Array<{ distance: number; nodeId: string }> = [];
@@ -281,52 +340,66 @@ export class AlgorithmRunner {
         distance: distances[n.id],
         state: n.id === startNodeId ? 'current' : 'default'
       })),
-      description: `Starting Dijkstra from ${this.getNodeLabel(startNodeId)}`
+      description: `Starting Dijkstra from ${this.getNodeLabel(startNodeId)}`,
+      queue: pq.map(item => this.getNodeLabel(item.nodeId))
     });
 
     while (pq.length > 0) {
       pq.sort((a, b) => a.distance - b.distance);
       const current = pq.shift()!;
 
-      if (visited.has(current.nodeId)) continue;
-      if (current.distance === Infinity) break;
+			if (visited.has(current.nodeId)) continue;
+			if (current.distance === Infinity) break;
 
-      visited.add(current.nodeId);
-      this.addStep(stepId++, 'Process current node', 8, {
-        nodeUpdates: [{ id: current.nodeId, state: 'visited' }],
-        description: `Processing ${this.getNodeLabel(current.nodeId)} (dist: ${current.distance})`
-      });
-      
-      const edges = this.graphData.edges.filter(e => e.source === current.nodeId);
-      for (const edge of edges) {
-        const neighborId = edge.target;
-        if (visited.has(neighborId)) continue;
+			visited.add(current.nodeId);
+			// Show distances as a matrix (object) for visualization
+			this.addStep(stepId++, 'Process current node', 8, {
+				nodeUpdates: [{ id: current.nodeId, state: 'visited' }],
+				description: `Processing ${this.getNodeLabel(current.nodeId)} (dist: ${current.distance})`,
+				queue: pq.map(item => this.getNodeLabel(item.nodeId)),
+				matrix: { ...distances }
+			});
+      
+			const edges = this.graphData.edges.filter(e => e.source === current.nodeId);
+			for (const edge of edges) {
+				const neighborId = edge.target;
+				if (visited.has(neighborId)) continue;
 
-        const weight = edge.weight || 1;
-        const newDistance = distances[current.nodeId] + weight;
+				const weight = edge.weight || 1;
+				const newDistance = distances[current.nodeId] + weight;
 
-        if (newDistance < distances[neighborId]) {
-          distances[neighborId] = newDistance;
-          pq.push({ distance: newDistance, nodeId: neighborId });
+				if (newDistance < distances[neighborId]) {
+					distances[neighborId] = newDistance;
+					pq.push({ distance: newDistance, nodeId: neighborId });
 
-          this.addStep(stepId++, 'Update distance', 12, {
-            nodeUpdates: [{ id: neighborId, distance: newDistance, state: 'current' }],
-            edgeUpdates: [{ id: edge.id, isActive: true }],
-            description: `Update distance to ${this.getNodeLabel(neighborId)}: ${newDistance}`
-          });
-        }
-      }
+					this.addStep(stepId++, 'Update distance', 12, {
+						nodeUpdates: [{ id: neighborId, distance: newDistance, state: 'current' }],
+						edgeUpdates: [{ id: edge.id, isActive: true }],
+						description: `Update distance to ${this.getNodeLabel(neighborId)}: ${newDistance}`,
+						queue: pq.map(item => this.getNodeLabel(item.nodeId)),
+						matrix: { ...distances }
+					});
+				}
+			}
+			// Always add a step to show the queue state and matrix after each iteration
+			this.addStep(stepId++, 'Queue State', 2, {
+				queue: pq.map(item => this.getNodeLabel(item.nodeId)),
+				matrix: { ...distances }
+			});
     }
 
-    this.addStep(stepId++, 'Dijkstra Complete', 14, {
-      description: 'Shortest path algorithm finished.'
-    });
+		this.addStep(stepId++, 'Dijkstra Complete', 14, {
+			description: 'Shortest path algorithm finished.',
+			queue: pq.map(item => this.getNodeLabel(item.nodeId)),
+			matrix: { ...distances }
+		});
 
     return this.createDefaultExecution();
   }
 
   async runAStar(startNodeId: string, endNodeId: string): Promise<AlgorithmExecution> {
     this.steps = [];
+    this.operationLog = [];
     let stepId = 0;
 
     const h = (nodeId: string) => {
@@ -348,70 +421,86 @@ export class AlgorithmRunner {
     gScore[startNodeId] = 0;
     fScore[startNodeId] = h(startNodeId);
 
-    this.addStep(stepId++, 'Initialize A*', 3, {
-      nodeUpdates: this.graphData.nodes.map(n => ({
-        id: n.id,
-        distance: gScore[n.id],
-        state: n.id === startNodeId ? 'current' : 'default'
-      })),
-      description: `Starting A* from ${this.getNodeLabel(startNodeId)} to ${this.getNodeLabel(endNodeId)}`
-    });
+		this.addStep(stepId++, 'Initialize A*', 3, {
+			nodeUpdates: this.graphData.nodes.map(n => ({
+				id: n.id,
+				distance: gScore[n.id],
+				state: n.id === startNodeId ? 'current' : 'default'
+			})),
+			description: `Starting A* from ${this.getNodeLabel(startNodeId)} to ${this.getNodeLabel(endNodeId)}`,
+			queue: openSet.map(id => this.getNodeLabel(id)),
+			matrix: { gScore: { ...gScore }, fScore: { ...fScore } }
+		});
 
-    while (openSet.length > 0) {
-      openSet.sort((a, b) => fScore[a] - fScore[b]);
-      const currentId = openSet.shift()!;
+		while (openSet.length > 0) {
+			openSet.sort((a, b) => fScore[a] - fScore[b]);
+			const currentId = openSet.shift()!;
 
-      this.addStep(stepId++, 'Select node from open set', 6, {
-        nodeUpdates: [{ id: currentId, state: 'current' }],
-        description: `Selecting ${this.getNodeLabel(currentId)} (fScore: ${fScore[currentId].toFixed(2)})`
-      });
+			this.addStep(stepId++, 'Select node from open set', 6, {
+				nodeUpdates: [{ id: currentId, state: 'current' }],
+				description: `Selecting ${this.getNodeLabel(currentId)} (fScore: ${fScore[currentId].toFixed(2)})`,
+				queue: openSet.map(id => this.getNodeLabel(id)),
+				matrix: { gScore: { ...gScore }, fScore: { ...fScore } }
+			});
+			// Always add a step to show the queue state and matrix after each iteration
+			this.addStep(stepId++, 'Queue State', 2, {
+				queue: openSet.map(id => this.getNodeLabel(id)),
+				matrix: { gScore: { ...gScore }, fScore: { ...fScore } }
+			});
 
-      if (currentId === endNodeId) {
-        let path = [currentId];
-        let current = currentId;
-        while (cameFrom[current]) {
-          current = cameFrom[current];
-          path.unshift(current);
-        }
-        this.addStep(stepId++, 'Path found', 8, {
-          nodeUpdates: path.map(id => ({ id, state: 'visited' })),
-          edgeUpdates: path.slice(0, -1).map((id, i) => ({ source: id, target: path[i+1], isActive: true })),
-          description: `Path found with total cost ${gScore[endNodeId].toFixed(2)}`
-        });
-        return this.createDefaultExecution();
-      }
+			if (currentId === endNodeId) {
+				let path = [currentId];
+				let current = currentId;
+				while (cameFrom[current]) {
+					current = cameFrom[current];
+					path.unshift(current);
+				}
+				this.addStep(stepId++, 'Path found', 8, {
+					nodeUpdates: path.map(id => ({ id, state: 'visited' })),
+					edgeUpdates: path.slice(0, -1).map((id, i) => ({ source: id, target: path[i+1], isActive: true })),
+					description: `Path found with total cost ${gScore[endNodeId].toFixed(2)}`,
+					result: path.map(id => this.getNodeLabel(id)),
+					matrix: { gScore: { ...gScore }, fScore: { ...fScore } }
+				});
+				return this.createDefaultExecution();
+			}
 
-      for (const edge of this.graphData.edges.filter(e => e.source === currentId)) {
-        const neighborId = edge.target;
-        const tentative_gScore = gScore[currentId] + (edge.weight || 1);
-        this.addStep(stepId++, 'Check neighbor', 11, {
-            edgeUpdates: [{ id: edge.id, isActive: true }],
-            description: `Checking neighbor ${this.getNodeLabel(neighborId)}`
-        });
+			for (const edge of this.graphData.edges.filter(e => e.source === currentId)) {
+				const neighborId = edge.target;
+				const tentative_gScore = gScore[currentId] + (edge.weight || 1);
+				this.addStep(stepId++, 'Check neighbor', 11, {
+						edgeUpdates: [{ id: edge.id, isActive: true }],
+						description: `Checking neighbor ${this.getNodeLabel(neighborId)}`,
+						matrix: { gScore: { ...gScore }, fScore: { ...fScore } }
+				});
 
-        if (tentative_gScore < gScore[neighborId]) {
-          cameFrom[neighborId] = currentId;
-          gScore[neighborId] = tentative_gScore;
-          fScore[neighborId] = gScore[neighborId] + h(neighborId);
-          if (!openSet.includes(neighborId)) {
-            openSet.push(neighborId);
-          }
-          this.addStep(stepId++, 'Update neighbor scores', 15, {
-            nodeUpdates: [{ id: neighborId, distance: gScore[neighborId], state: 'current' }],
-            description: `Updating ${this.getNodeLabel(neighborId)}: gScore=${gScore[neighborId].toFixed(2)}, fScore=${fScore[neighborId].toFixed(2)}`
-          });
-        }
-      }
+				if (tentative_gScore < gScore[neighborId]) {
+					cameFrom[neighborId] = currentId;
+					gScore[neighborId] = tentative_gScore;
+					fScore[neighborId] = gScore[neighborId] + h(neighborId);
+					if (!openSet.includes(neighborId)) {
+						openSet.push(neighborId);
+					}
+					this.addStep(stepId++, 'Update neighbor scores', 15, {
+						nodeUpdates: [{ id: neighborId, distance: gScore[neighborId], state: 'current' }],
+						description: `Updating ${this.getNodeLabel(neighborId)}: gScore=${gScore[neighborId].toFixed(2)}, fScore=${fScore[neighborId].toFixed(2)}`,
+						matrix: { gScore: { ...gScore }, fScore: { ...fScore } }
+					});
+				}
+			}
     }
 
-    this.addStep(stepId++, 'A* Complete - No Path', 18, {
-      description: 'Algorithm finished: no path found to the destination.'
-    });
+		this.addStep(stepId++, 'A* Complete - No Path', 18, {
+			description: 'Algorithm finished: no path found to the destination.',
+			queue: openSet.map(id => this.getNodeLabel(id)),
+			matrix: { gScore: { ...gScore }, fScore: { ...fScore } }
+		});
     return this.createDefaultExecution();
   }
 
   async runBellmanFord(startNodeId: string): Promise<AlgorithmExecution> {
     this.steps = [];
+    this.operationLog = [];
     let stepId = 0;
     const distances: Record<string, number> = {};
 
@@ -420,70 +509,86 @@ export class AlgorithmRunner {
     });
     distances[startNodeId] = 0;
 
-    this.addStep(stepId++, 'Initialize Bellman-Ford', 2, {
-      nodeUpdates: this.graphData.nodes.map(n => ({
-        id: n.id,
-        distance: distances[n.id]
-      })),
-      description: `Initializing distances. Start node ${this.getNodeLabel(startNodeId)} is 0.`
-    });
+		this.addStep(stepId++, 'Initialize Bellman-Ford', 2, {
+			nodeUpdates: this.graphData.nodes.map(n => ({
+				id: n.id,
+				distance: distances[n.id]
+			})),
+			description: `Initializing distances. Start node ${this.getNodeLabel(startNodeId)} is 0.`,
+			matrix: { ...distances }
+		});
 
-    for (let i = 0; i < this.graphData.nodes.length - 1; i++) {
-      let updated = false;
-      for (const edge of this.graphData.edges) {
-        const u = edge.source;
-        const v = edge.target;
-        const w = edge.weight || 1;
-        this.addStep(stepId++, `Relaxing edge`, 4, {
-          edgeUpdates: [{ id: edge.id, isActive: true }],
-          description: `Iteration ${i+1}: Checking edge ${this.getNodeLabel(u)} -> ${this.getNodeLabel(v)}`
-        });
-        if (distances[u] !== Infinity && distances[u] + w < distances[v]) {
-          distances[v] = distances[u] + w;
-          updated = true;
-          this.addStep(stepId++, 'Distance updated', 6, {
-            nodeUpdates: [{ id: v, distance: distances[v] }],
-            description: `Updated distance to ${this.getNodeLabel(v)}: ${distances[v]}`
-          });
-        }
-      }
-      if (!updated) break;
-    }
+		for (let i = 0; i < this.graphData.nodes.length - 1; i++) {
+			let updated = false;
+			for (const edge of this.graphData.edges) {
+				const u = edge.source;
+				const v = edge.target;
+				const w = edge.weight || 1;
+				this.addStep(stepId++, `Relaxing edge`, 4, {
+					edgeUpdates: [{ id: edge.id, isActive: true }],
+					description: `Iteration ${i+1}: Checking edge ${this.getNodeLabel(u)} -> ${this.getNodeLabel(v)}`,
+					matrix: { ...distances }
+				});
+				if (distances[u] !== Infinity && distances[u] + w < distances[v]) {
+					distances[v] = distances[u] + w;
+					updated = true;
+					this.addStep(stepId++, 'Distance updated', 6, {
+						nodeUpdates: [{ id: v, distance: distances[v] }],
+						description: `Updated distance to ${this.getNodeLabel(v)}: ${distances[v]}`,
+						matrix: { ...distances }
+					});
+				}
+			}
+			// Show matrix after each iteration
+			this.addStep(stepId++, 'Matrix State', 7, {
+				matrix: { ...distances }
+			});
+			if (!updated) break;
+		}
+    // Remove or fix this line, as stack is not defined in Bellman-Ford
+    // this.addStep(stepId++, 'Stack State', 2, {
+    //   stack: [...stack]
+    // });
 
-    for (const edge of this.graphData.edges) {
-      const u = edge.source;
-      const v = edge.target;
-      const w = edge.weight || 1;
-      if (distances[u] !== Infinity && distances[u] + w < distances[v]) {
-        this.addStep(stepId++, 'Negative cycle detected', 9, {
-          nodeUpdates: [{ id: v, state: 'error' }, {id: u, state: 'error'}],
-          edgeUpdates: [{id: edge.id, isError: true}],
-          description: 'Negative weight cycle detected! Algorithm cannot find shortest paths.'
-        });
-        return this.createDefaultExecution();
-      }
-    }
+		for (const edge of this.graphData.edges) {
+			const u = edge.source;
+			const v = edge.target;
+			const w = edge.weight || 1;
+			if (distances[u] !== Infinity && distances[u] + w < distances[v]) {
+				this.addStep(stepId++, 'Negative cycle detected', 9, {
+					nodeUpdates: [{ id: v, state: 'error' }, {id: u, state: 'error'}],
+					edgeUpdates: [{id: edge.id, isError: true}],
+					description: 'Negative weight cycle detected! Algorithm cannot find shortest paths.',
+					matrix: { ...distances }
+				});
+				return this.createDefaultExecution();
+			}
+		}
 
-    this.addStep(stepId++, 'Bellman-Ford Complete', 10, {
-      description: 'Algorithm finished. Final distances calculated.'
-    });
+		this.addStep(stepId++, 'Bellman-Ford Complete', 10, {
+			description: 'Algorithm finished. Final distances calculated.',
+			matrix: { ...distances }
+		});
     return this.createDefaultExecution();
   }
 
   // --- Minimum Spanning Tree (MST) Algorithms ---
 
   async runPrims(startNodeId: string): Promise<AlgorithmExecution> {
+            // stack: [...stack] (remove, not relevant for Prim's)
     this.steps = [];
+    this.operationLog = [];
     let stepId = 0;
     const mstEdges: GraphEdge[] = [];
     const visited = new Set<string>();
     const pq: GraphEdge[] = [];
 
     visited.add(startNodeId);
-    this.addStep(stepId++, 'Initialize Prim\'s', 5, {
-      nodeUpdates: [{ id: startNodeId, state: 'visited' }],
-      description: `Starting Prim's algorithm from node ${this.getNodeLabel(startNodeId)}`
-    });
+		this.addStep(stepId++, 'Initialize Prim\'s', 5, {
+			nodeUpdates: [{ id: startNodeId, state: 'visited' }],
+			description: `Starting Prim's algorithm from node ${this.getNodeLabel(startNodeId)}`,
+			list: [this.getNodeLabel(startNodeId)]
+		});
 
     const addEdges = (nodeId: string) => {
       this.graphData.edges
@@ -492,50 +597,60 @@ export class AlgorithmRunner {
     };
     
     addEdges(startNodeId);
-    this.addStep(stepId++, 'Add initial edges to PQ', 6, {
-      description: `Adding edges from ${this.getNodeLabel(startNodeId)} to the priority queue.`
-    });
+		this.addStep(stepId++, 'Add initial edges to PQ', 6, {
+			description: `Adding edges from ${this.getNodeLabel(startNodeId)} to the priority queue.`,
+			array: pq.map(e => `${this.getNodeLabel(e.source)}-${this.getNodeLabel(e.target)}(${e.weight || 1})`)
+		});
 
-    while (pq.length > 0 && mstEdges.length < this.graphData.nodes.length - 1) {
-      pq.sort((a, b) => (a.weight || 1) - (b.weight || 1));
-      const edge = pq.shift()!;
+		while (pq.length > 0 && mstEdges.length < this.graphData.nodes.length - 1) {
+			pq.sort((a, b) => (a.weight || 1) - (b.weight || 1));
+			const edge = pq.shift()!;
 
-      this.addStep(stepId++, 'Select minimum edge', 8, {
-        edgeUpdates: [{ id: edge.id, isActive: true }],
-        description: `Selecting edge (${this.getNodeLabel(edge.source)}-${this.getNodeLabel(edge.target)}) with weight ${edge.weight || 1}`
-      });
+			this.addStep(stepId++, 'Select minimum edge', 8, {
+				edgeUpdates: [{ id: edge.id, isActive: true }],
+				description: `Selecting edge (${this.getNodeLabel(edge.source)}-${this.getNodeLabel(edge.target)}) with weight ${edge.weight || 1}`,
+				array: pq.map(e => `${this.getNodeLabel(e.source)}-${this.getNodeLabel(e.target)}(${e.weight || 1})`),
+				list: Array.from(visited).map(id => this.getNodeLabel(id))
+			});
 
-      const isSourceVisited = visited.has(edge.source);
-      const isTargetVisited = visited.has(edge.target);
+			const isSourceVisited = visited.has(edge.source);
+			const isTargetVisited = visited.has(edge.target);
 
-      if (isSourceVisited && isTargetVisited) {
-        this.addStep(stepId++, 'Skip edge (creates cycle)', 11, {
-          edgeUpdates: [{ id: edge.id, isActive: false, isError: true }],
-          description: 'Both nodes already in MST, skipping edge.'
-        });
-        continue;
-      }
+			if (isSourceVisited && isTargetVisited) {
+				this.addStep(stepId++, 'Skip edge (creates cycle)', 11, {
+					edgeUpdates: [{ id: edge.id, isActive: false, isError: true }],
+					description: 'Both nodes already in MST, skipping edge.',
+					array: pq.map(e => `${this.getNodeLabel(e.source)}-${this.getNodeLabel(e.target)}(${e.weight || 1})`),
+					list: Array.from(visited).map(id => this.getNodeLabel(id))
+				});
+				continue;
+			}
 
-      const newNodeId = isSourceVisited ? edge.target : edge.source;
-      visited.add(newNodeId);
-      mstEdges.push(edge);
-      this.addStep(stepId++, 'Add edge to MST', 13, {
-        nodeUpdates: [{ id: newNodeId, state: 'visited' }],
-        edgeUpdates: [{ id: edge.id, inTree: true }],
-        description: `Adding edge to MST and visiting node ${this.getNodeLabel(newNodeId)}`
-      });
+			const newNodeId = isSourceVisited ? edge.target : edge.source;
+			visited.add(newNodeId);
+			mstEdges.push(edge);
+			this.addStep(stepId++, 'Add edge to MST', 13, {
+				nodeUpdates: [{ id: newNodeId, state: 'visited' }],
+				edgeUpdates: [{ id: edge.id, inTree: true }],
+				description: `Adding edge to MST and visiting node ${this.getNodeLabel(newNodeId)}`,
+				array: pq.map(e => `${this.getNodeLabel(e.source)}-${this.getNodeLabel(e.target)}(${e.weight || 1})`),
+				list: Array.from(visited).map(id => this.getNodeLabel(id))
+			});
 
-      addEdges(newNodeId);
-    }
+			addEdges(newNodeId);
+		}
 
-    this.addStep(stepId++, 'Prim\'s Complete', 15, {
-      description: 'Minimum Spanning Tree construction complete.'
-    });
+		this.addStep(stepId++, 'Prim\'s Complete', 15, {
+			description: 'Minimum Spanning Tree construction complete.',
+			array: pq.map(e => `${this.getNodeLabel(e.source)}-${this.getNodeLabel(e.target)}(${e.weight || 1})`),
+			list: Array.from(visited).map(id => this.getNodeLabel(id))
+		});
     return this.createDefaultExecution();
   }
   
   async runKruskals(): Promise<AlgorithmExecution> {
     this.steps = [];
+    this.operationLog = [];
     let stepId = 0;
     const mstEdges: GraphEdge[] = [];
     const sortedEdges = [...this.graphData.edges].sort((a, b) => (a.weight || 1) - (b.weight || 1));
@@ -553,40 +668,50 @@ export class AlgorithmRunner {
       if(rootI !== rootJ) parent[rootJ] = rootI;
     };
     
-    this.addStep(stepId++, 'Initialize Kruskal\'s', 3, {
-      description: 'Sorting all edges by weight.'
-    });
+		this.addStep(stepId++, 'Initialize Kruskal\'s', 3, {
+			description: 'Sorting all edges by weight.',
+			array: sortedEdges.map(e => `${this.getNodeLabel(e.source)}-${this.getNodeLabel(e.target)}(${e.weight || 1})`),
+			list: this.graphData.nodes.map(n => this.getNodeLabel(n.id))
+		});
     
-    for(const edge of sortedEdges) {
-      this.addStep(stepId++, 'Consider next edge', 5, {
-        edgeUpdates: [{ id: edge.id, isActive: true }],
-        description: `Considering edge (${this.getNodeLabel(edge.source)}-${this.getNodeLabel(edge.target)}) with weight ${edge.weight || 1}`
-      });
+		for(const edge of sortedEdges) {
+			this.addStep(stepId++, 'Consider next edge', 5, {
+				edgeUpdates: [{ id: edge.id, isActive: true }],
+				description: `Considering edge (${this.getNodeLabel(edge.source)}-${this.getNodeLabel(edge.target)}) with weight ${edge.weight || 1}`,
+				array: sortedEdges.map(e => `${this.getNodeLabel(e.source)}-${this.getNodeLabel(e.target)}(${e.weight || 1})`),
+				list: this.graphData.nodes.map(n => this.getNodeLabel(n.id))
+			});
 
-      const rootU = find(edge.source);
-      const rootV = find(edge.target);
-      
-      if (rootU !== rootV) {
-        mstEdges.push(edge);
-        union(edge.source, edge.target);
-        this.addStep(stepId++, 'Add edge to MST', 8, {
-          nodeUpdates: [{id: edge.source, state: 'visited'}, {id: edge.target, state: 'visited'}],
-          edgeUpdates: [{ id: edge.id, inTree: true }],
-          description: `Nodes are in different sets. Adding edge to MST.`
-        });
-      } else {
-        this.addStep(stepId++, 'Skip edge (creates cycle)', 7, {
-          edgeUpdates: [{ id: edge.id, isError: true, isActive: false }],
-          description: `Nodes are in the same set. Skipping to avoid a cycle.`
-        });
-      }
+			const rootU = find(edge.source);
+			const rootV = find(edge.target);
+      
+			if (rootU !== rootV) {
+				mstEdges.push(edge);
+				union(edge.source, edge.target);
+				this.addStep(stepId++, 'Add edge to MST', 8, {
+					nodeUpdates: [{id: edge.source, state: 'visited'}, {id: edge.target, state: 'visited'}],
+					edgeUpdates: [{ id: edge.id, inTree: true }],
+					description: `Nodes are in different sets. Adding edge to MST.`,
+					array: sortedEdges.map(e => `${this.getNodeLabel(e.source)}-${this.getNodeLabel(e.target)}(${e.weight || 1})`),
+					list: this.graphData.nodes.map(n => this.getNodeLabel(n.id))
+				});
+			} else {
+				this.addStep(stepId++, 'Skip edge (creates cycle)', 7, {
+					edgeUpdates: [{ id: edge.id, isError: true, isActive: false }],
+					description: `Nodes are in the same set. Skipping to avoid a cycle.`,
+					array: sortedEdges.map(e => `${this.getNodeLabel(e.source)}-${this.getNodeLabel(e.target)}(${e.weight || 1})`),
+					list: this.graphData.nodes.map(n => this.getNodeLabel(n.id))
+				});
+			}
 
-      if(mstEdges.length === this.graphData.nodes.length - 1) break;
-    }
-    
-    this.addStep(stepId++, 'Kruskal\'s Complete', 10, {
-      description: 'Minimum Spanning Tree construction complete.'
-    });
+			if(mstEdges.length === this.graphData.nodes.length - 1) break;
+		}
+    
+		this.addStep(stepId++, 'Kruskal\'s Complete', 10, {
+			description: 'Minimum Spanning Tree construction complete.',
+			array: sortedEdges.map(e => `${this.getNodeLabel(e.source)}-${this.getNodeLabel(e.target)}(${e.weight || 1})`),
+			list: this.graphData.nodes.map(n => this.getNodeLabel(n.id))
+		});
     return this.createDefaultExecution();
   }
 }

@@ -1,13 +1,11 @@
 export interface GraphNode {
   id: string;
   label: string;
-  x: number;
-  y: number;
-  state: 'default' | 'visited' | 'current' | 'path' | 'error';
-  distance?: number;
-  parent?: string;
+  x?: number;
+  y?: number;
+  state?: 'default' | 'current' | 'visited' | 'error';
+  distance?: number; // For shortest path algorithms
 }
-
 export interface GraphEdge {
   id: string;
   source: string;
@@ -27,11 +25,15 @@ export interface GraphData {
 export interface AlgorithmStep {
   id: number;
   description: string;
-  codeLine: number;
-  nodeUpdates?: Partial<GraphNode>[];
-  edgeUpdates?: Partial<GraphEdge>[];
-  highlightNodes?: string[];
-  highlightEdges?: string[];
+  codeLine?: number;
+  nodeUpdates: Partial<GraphNode>[];
+  edgeUpdates: Partial<GraphEdge>[];
+  queue?: string[];
+  stack?: string[];
+  result?: string[];
+  matrix?: Record<string, any>; // For distance tables, gScore/fScore, etc.
+  list?: string[]; // For MST visited nodes, etc.
+  array?: string[]; // For edge arrays, etc.
 }
 
 export interface AlgorithmResult {

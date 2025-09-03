@@ -8,6 +8,7 @@ import { Play, Pause, Square, RotateCcw, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { GraphData, AlgorithmStep } from "@/lib/graph-types";
 import { AlgorithmRunner, getAlgorithmCode } from "@/lib/algorithms";
+import { graphTemplates } from "@/lib/graph-templates";
 import { CodeVisualization } from "./CodeVisualization";
 
 
@@ -23,6 +24,7 @@ interface AlgorithmControlsProps {
   setAlgorithmSteps: (steps: AlgorithmStep[]) => void;
   currentStep: number;
   setCurrentStep: React.Dispatch<React.SetStateAction<number>>;
+  setAlgorithmExecution?: (exec: any) => void;
 }
 
 const algorithms = {
@@ -42,7 +44,8 @@ export const AlgorithmControls = ({
   algorithmSteps,
   setAlgorithmSteps,
   currentStep,
-  setCurrentStep
+  setCurrentStep,
+  setAlgorithmExecution
 }: AlgorithmControlsProps) => {
   const [executionState, setExecutionState] = useState<ExecutionState>('idle');
   const [speed, setSpeed] = useState([50]);
@@ -123,10 +126,11 @@ export const AlgorithmControls = ({
           return;
         }
 
-        setAlgorithmSteps(execution.steps);
-        setTotalSteps(execution.steps.length);
-        setCurrentStep(0);
-        setExecutionState('running');
+  setAlgorithmSteps(execution.steps);
+  setTotalSteps(execution.steps.length);
+  setCurrentStep(0);
+  setExecutionState('running');
+  if (typeof setAlgorithmExecution === 'function') setAlgorithmExecution(execution);
         
         toast({
           title: "Algorithm Started",
@@ -271,10 +275,29 @@ export const AlgorithmControls = ({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" />
-            Algorithm Selection
+            Graph & Algorithm Selection
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Template Graph Selector */}
+          <div>
+            <label className="text-sm font-medium mb-2 block">Choose Template Graph</label>
+            <Select onValueChange={val => {
+              const template = graphTemplates.find(t => t.name === val);
+              if (template) setGraphData(JSON.parse(JSON.stringify(template.data)));
+            }}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a template graph (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                {graphTemplates.map(t => (
+                  <SelectItem key={t.name} value={t.name}>
+                    {t.name} {t.description ? `- ${t.description}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div>
             <label className="text-sm font-medium mb-2 block">Choose Algorithm</label>
             <Select value={selectedAlgorithm} onValueChange={(value) => setSelectedAlgorithm(value as Algorithm)}>

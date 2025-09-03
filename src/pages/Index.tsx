@@ -5,6 +5,7 @@ import { GraphCanvas } from "@/components/GraphCanvas";
 import { AlgorithmControls, Algorithm } from "@/components/AlgorithmControls";
 import { CodeVisualization } from "@/components/CodeVisualization";
 import { getAlgorithmCode } from "@/lib/algorithms";
+import { AlgorithmDataPanel } from "@/components/AlgorithmDataPanel";
 import { GraphData } from "@/lib/graph-types";
 import { Play, Pause, RotateCcw, Zap } from "lucide-react";
 import graphHero from "@/assets/graph-hero.jpg";
@@ -15,6 +16,7 @@ const Index = () => {
   const [showCodePanel, setShowCodePanel] = useState(true);
   const [codePanelWidth, setCodePanelWidth] = useState(400);
   const [selectedAlgorithm, setSelectedAlgorithm] = useState<Algorithm>('bfs');
+  const [algorithmExecution, setAlgorithmExecution] = useState<any>(null);
   const [algorithmSteps, setAlgorithmSteps] = useState<any[]>([]);
   const [currentStep, setCurrentStep] = useState<number>(0);
 
@@ -43,14 +45,67 @@ const Index = () => {
               selectedAlgorithm={selectedAlgorithm}
               setSelectedAlgorithm={setSelectedAlgorithm}
               algorithmSteps={algorithmSteps}
-              setAlgorithmSteps={setAlgorithmSteps}
+              setAlgorithmSteps={steps => {
+                setAlgorithmSteps(steps);
+                setAlgorithmExecution(exec => exec ? { ...exec, steps } : { steps });
+              }}
               currentStep={currentStep}
               setCurrentStep={setCurrentStep}
+              setAlgorithmExecution={setAlgorithmExecution}
             />
           </aside>
           <main className="flex-1 flex">
-            <div className="flex-1">
+            <div className="flex-1 flex flex-col">
               <GraphCanvas graphData={graphData} setGraphData={setGraphData} />
+              {/* Data Panel below the graph, or you can use flex-row to place it beside */}
+              <AlgorithmDataPanel
+                data={{
+                  ...(algorithmSteps[currentStep]?.queue ? { queue: algorithmSteps[currentStep].queue } : {}),
+                  ...(algorithmSteps[currentStep]?.stack ? { stack: algorithmSteps[currentStep].stack } : {}),
+                  ...(algorithmSteps[currentStep]?.result ? { result: algorithmSteps[currentStep].result } : {}),
+                  ...(algorithmSteps[currentStep]?.matrix ? { matrix: algorithmSteps[currentStep].matrix } : {}),
+                  ...(algorithmSteps[currentStep]?.list ? { list: algorithmSteps[currentStep].list } : {}),
+                  ...(algorithmSteps[currentStep]?.array ? { array: algorithmSteps[currentStep].array } : {}),
+                }}
+              />
+              {/* Operation Log Panel */}
+              {algorithmExecution?.operationLog && algorithmExecution.operationLog.length > 0 && (
+                <div className="bg-card/60 border border-border rounded-lg p-4 mt-4">
+                  <h3 className="font-bold mb-2 text-lg">Full Operation Log</h3>
+                  <div className="overflow-x-auto text-xs">
+                    <table className="min-w-full border-collapse">
+                      <thead>
+                        <tr className="bg-muted/30">
+                          <th className="px-2 py-1 border-b text-left">#</th>
+                          <th className="px-2 py-1 border-b text-left">Operation</th>
+                          <th className="px-2 py-1 border-b text-left">Visited</th>
+                          <th className="px-2 py-1 border-b text-left">Queue</th>
+                          <th className="px-2 py-1 border-b text-left">Stack</th>
+                          <th className="px-2 py-1 border-b text-left">Result</th>
+                          <th className="px-2 py-1 border-b text-left">Matrix</th>
+                          <th className="px-2 py-1 border-b text-left">List</th>
+                          <th className="px-2 py-1 border-b text-left">Array</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {algorithmExecution.operationLog.map((entry, i) => (
+                          <tr key={i} className={i % 2 === 0 ? '' : 'bg-muted/10'}>
+                            <td className="px-2 py-1 border-b">{entry.iteration}</td>
+                            <td className="px-2 py-1 border-b">{entry.operation}</td>
+                            <td className="px-2 py-1 border-b">{entry.nodesVisited?.join(', ')}</td>
+                            <td className="px-2 py-1 border-b">{entry.queue?.join(', ')}</td>
+                            <td className="px-2 py-1 border-b">{entry.stack?.join(', ')}</td>
+                            <td className="px-2 py-1 border-b">{entry.result?.join(', ')}</td>
+                            <td className="px-2 py-1 border-b">{entry.matrix ? JSON.stringify(entry.matrix) : ''}</td>
+                            <td className="px-2 py-1 border-b">{entry.list?.join(', ')}</td>
+                            <td className="px-2 py-1 border-b">{entry.array?.join(', ')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
             {/* Code Panel */}
             {showCodePanel && (
@@ -65,7 +120,6 @@ const Index = () => {
                 >
                   Close
                 </button>
-                {/* You would pass real props here from AlgorithmControls */}
                 <CodeVisualization
                   algorithm={selectedAlgorithm}
                   codeLines={getAlgorithmCode(selectedAlgorithm)}
