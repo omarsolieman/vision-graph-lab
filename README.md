@@ -6,11 +6,10 @@
 ![Issues](https://img.shields.io/github/issues/<YOUR_USERNAME>/<YOUR_REPO>.svg)
 ![Pull Requests](https://img.shields.io/github/issues-pr/<YOUR_USERNAME>/<YOUR_REPO>.svg)
 ![Last Commit](https://img.shields.io/github/last-commit/<YOUR_USERNAME>/<YOUR_REPO>.svg)
-![Build](https://github.com/<YOUR_USERNAME>/<YOUR_REPO>/actions/workflows/ci.yml/badge.svg)
+![Build](https://github.com/omarsolieman/vision-graph-lab/actions/workflows/ci.yml/badge.svg)
 ![Made with React](https://img.shields.io/badge/Made%20with-React-61DAFB?logo=react\&logoColor=white)
 ![Made with TypeScript](https://img.shields.io/badge/Made%20with-TypeScript-007ACC?logo=typescript\&logoColor=white)
 ![Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?logo=vercel)
-![Netlify](https://img.shields.io/badge/Deployed%20on-Netlify-teal?logo=netlify)
 ![Dark Mode](https://img.shields.io/badge/UI-Dark%20Mode-1E1E1E?style=flat\&logo=darkreader\&logoColor=white)
 
 > 🎨 **Visualize. Learn. Interact.**
@@ -20,8 +19,7 @@
 
 ## 🌍 Live Demo
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Click%20Here-brightgreen?style=for-the-badge\&logo=vercel)](https://your-demo-link.com)
-*(Replace with your actual deployed URL)*
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Click%20Here-brightgreen?style=for-the-badge\&logo=vercel)]([https://vision-graph-lab.vercel.app/])
 
 ---
 
