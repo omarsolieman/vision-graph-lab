@@ -12,7 +12,7 @@ import { graphTemplates } from "@/lib/graph-templates";
 import { CodeVisualization } from "./CodeVisualization";
 
 
-export type Algorithm = 'bfs' | 'dfs' | 'dijkstra' | 'bellman-ford' | 'prim' | 'kruskal';
+export type Algorithm = 'bfs' | 'dfs' | 'dijkstra' | 'bellman-ford' | 'prim' | 'kruskal' | 'floyd-warshall';
 export type ExecutionState = 'idle' | 'running' | 'paused' | 'completed';
 
 interface AlgorithmControlsProps {
@@ -35,7 +35,8 @@ const algorithms = {
   'dijkstra': 'Dijkstra\'s Algorithm',
   'bellman-ford': 'Bellman-Ford Algorithm',
   'prim': 'Prim\'s Algorithm (MST)',
-  'kruskal': 'Kruskal\'s Algorithm (MST)'
+  'kruskal': 'Kruskal\'s Algorithm (MST)',
+  'floyd-warshall': 'Floyd-Warshall Algorithm (All-Pairs Shortest Path)'
 };
 
 export const AlgorithmControls = ({
@@ -123,6 +124,9 @@ export const AlgorithmControls = ({
         } else if (selectedAlgorithm === 'bellman-ford') {
           const start = startNode || graphData.nodes[0].id;
           execution = await runner.runBellmanFord(start);
+
+        } else if (selectedAlgorithm === 'floyd-warshall') {
+          execution = await runner.runFloydWarshall();
         } else {
           toast({
             title: "Algorithm Not Implemented",

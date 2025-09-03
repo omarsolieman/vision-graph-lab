@@ -21,6 +21,31 @@ export interface OperationLogEntry {
 
 export const getAlgorithmCode = (algorithm: string): string[] => {
 	const algorithms: Record<string, string[]> = {
+		'ford-fulkerson': [
+			'function FordFulkerson(graph, source, sink):',
+			'    maxFlow = 0',
+			'    while there is a path from source to sink in residual graph:',
+			'        find minimum residual capacity (bottleneck) along the path',
+			'        for each edge in the path:',
+			'            subtract bottleneck from forward edge',
+			'            add bottleneck to reverse edge',
+			'        maxFlow += bottleneck',
+			'    return maxFlow'
+		],
+		'floyd-warshall': [
+			'function FloydWarshall(graph):',
+			'    dist = matrix of size |V| x |V|, initialized to ∞',
+			'    for each node v:',
+			'        dist[v][v] = 0',
+			'    for each edge (u, v) with weight w:',
+			'        dist[u][v] = w',
+			'    for k in V:',
+			'        for i in V:',
+			'            for j in V:',
+			'                if dist[i][k] + dist[k][j] < dist[i][j]:',
+			'                    dist[i][j] = dist[i][k] + dist[k][j]',
+			'    return dist'
+		],
     'bfs': [
       'function BFS(graph, startNode):',
       '    queue = [startNode]',
@@ -137,6 +162,89 @@ export const getAlgorithmCode = (algorithm: string): string[] => {
 };
 
 export class AlgorithmRunner {
+
+	/**
+	 * Ford-Fulkerson (Edmonds-Karp) algorithm for maximum flow.
+	 * Returns the max flow value from source to sink.
+	 */
+	async runFordFulkerson(sourceId: string, sinkId: string): Promise<AlgorithmExecution> {
+		this.steps = [];
+		this.operationLog = [];
+		let stepId = 0;
+		// Build residual graph
+		const nodeIds = this.graphData.nodes.map(n => n.id);
+		// Initialize residual capacities
+		const capacity: Record<string, Record<string, number>> = {};
+		for (const u of nodeIds) {
+			capacity[u] = {};
+			for (const v of nodeIds) {
+				capacity[u][v] = 0;
+			}
+		}
+		for (const edge of this.graphData.edges) {
+			capacity[edge.source][edge.target] = edge.weight || 1;
+		}
+		let maxFlow = 0;
+		const parent: Record<string, string | null> = {};
+
+		const bfs = (): boolean => {
+			// Find path from source to sink in residual graph
+			const visited = new Set<string>();
+			const queue: string[] = [sourceId];
+			parent[sourceId] = null;
+			while (queue.length > 0) {
+				const u = queue.shift()!;
+				for (const v of nodeIds) {
+					if (!visited.has(v) && capacity[u][v] > 0) {
+						queue.push(v);
+						parent[v] = u;
+						visited.add(v);
+						if (v === sinkId) return true;
+					}
+				}
+			}
+			return false;
+		};
+
+		this.addStep(stepId++, 'Initialize Ford-Fulkerson', 1, {
+			description: `Finding max flow from ${this.getNodeLabel(sourceId)} to ${this.getNodeLabel(sinkId)}`,
+			matrix: JSON.parse(JSON.stringify(capacity))
+		});
+
+		while (bfs()) {
+			// Find bottleneck (min capacity) along the path
+			let pathFlow = Infinity;
+			let v = sinkId;
+			while (v !== sourceId) {
+				const u = parent[v]!;
+				pathFlow = Math.min(pathFlow, capacity[u][v]);
+				v = u;
+			}
+			// Update residual capacities
+			v = sinkId;
+			const path: string[] = [];
+			while (v !== sourceId) {
+				const u = parent[v]!;
+				capacity[u][v] -= pathFlow;
+				capacity[v][u] += pathFlow;
+				path.unshift(v);
+				v = u;
+			}
+			path.unshift(sourceId);
+			maxFlow += pathFlow;
+			this.addStep(stepId++, 'Augment path', 2, {
+				description: `Augmented path: ${path.map(id => this.getNodeLabel(id)).join(' → ')} (flow +${pathFlow})`,
+				matrix: JSON.parse(JSON.stringify(capacity)),
+				list: path
+			});
+		}
+		this.addStep(stepId++, 'Ford-Fulkerson Complete', 3, {
+			description: `Algorithm finished. Max flow = ${maxFlow}`,
+			matrix: JSON.parse(JSON.stringify(capacity)),
+			result: [maxFlow.toString()]
+		});
+		return this.createDefaultExecution();
+	}
   private operationLog: OperationLogEntry[] = [];
   private graphData: GraphData;
   private steps: AlgorithmStep[] = [];
@@ -197,6 +305,61 @@ export class AlgorithmRunner {
   }
 
   // --- Traversal Algorithms ---
+	async runDFS(startNodeId: string): Promise<AlgorithmExecution> {
+		this.steps = [];
+		this.operationLog = [];
+		const visited = new Set<string>();
+		const stack: string[] = [startNodeId];
+		let stepId = 0;
+
+		this.addStep(stepId++, 'Initialize DFS', 1, {
+			nodeUpdates: [{ id: startNodeId, state: 'current' }],
+			description: `Starting DFS from node ${this.getNodeLabel(startNodeId)}`,
+			stack: stack.map(id => this.getNodeLabel(id))
+		});
+
+		while (stack.length > 0) {
+			const currentId = stack.pop()!;
+      
+			if (visited.has(currentId)) {
+				this.addStep(stepId++, 'Node already visited', 6, {
+					description: `Node ${this.getNodeLabel(currentId)} already visited, skipping.`,
+					stack: stack.map(id => this.getNodeLabel(id))
+				});
+				continue;
+			}
+
+			visited.add(currentId);
+			this.addStep(stepId++, 'Visit node', 7, {
+				nodeUpdates: [{ id: currentId, state: 'visited' }],
+				description: `Visited node ${this.getNodeLabel(currentId)}`,
+				stack: stack.map(id => this.getNodeLabel(id))
+			});
+      
+			for (const neighborId of this.getNeighbors(currentId)) {
+				if (!visited.has(neighborId)) {
+					stack.push(neighborId);
+					this.addStep(stepId++, 'Push neighbor to stack', 10, {
+						nodeUpdates: [{ id: neighborId, state: 'current' }],
+						edgeUpdates: [{ source: currentId, target: neighborId, isActive: true }],
+						description: `Added ${this.getNodeLabel(neighborId)} to stack`,
+						stack: stack.map(id => this.getNodeLabel(id))
+					});
+				}
+			}
+			// Always add a step to show the stack state after each iteration
+			this.addStep(stepId++, 'Stack State', 2, {
+				stack: stack.map(id => this.getNodeLabel(id))
+			});
+		}
+
+		this.addStep(stepId++, 'DFS Complete', 11, {
+			description: 'Algorithm finished: all reachable nodes visited.',
+			stack: stack.map(id => this.getNodeLabel(id))
+		});
+
+		return this.createDefaultExecution();
+	}
 
   async runBFS(startNodeId: string): Promise<AlgorithmExecution> {
     this.steps = [];
@@ -261,64 +424,59 @@ export class AlgorithmRunner {
     return this.createDefaultExecution();
   }
 
-  async runDFS(startNodeId: string): Promise<AlgorithmExecution> {
-    this.steps = [];
-    this.operationLog = [];
-    const visited = new Set<string>();
-    const stack: string[] = [startNodeId];
-    let stepId = 0;
-
-    this.addStep(stepId++, 'Initialize DFS', 1, {
-      nodeUpdates: [{ id: startNodeId, state: 'current' }],
-      description: `Starting DFS from node ${this.getNodeLabel(startNodeId)}`,
-      stack: stack.map(id => this.getNodeLabel(id))
-    });
-
-    while (stack.length > 0) {
-      const currentId = stack.pop()!;
-      
-      if (visited.has(currentId)) {
-        this.addStep(stepId++, 'Node already visited', 6, {
-          description: `Node ${this.getNodeLabel(currentId)} already visited, skipping.`,
-          stack: stack.map(id => this.getNodeLabel(id))
-        });
-        continue;
-      }
-
-      visited.add(currentId);
-      this.addStep(stepId++, 'Visit node', 7, {
-        nodeUpdates: [{ id: currentId, state: 'visited' }],
-        description: `Visited node ${this.getNodeLabel(currentId)}`,
-        stack: stack.map(id => this.getNodeLabel(id))
-      });
-      
-      for (const neighborId of this.getNeighbors(currentId)) {
-        if (!visited.has(neighborId)) {
-          stack.push(neighborId);
-          this.addStep(stepId++, 'Push neighbor to stack', 10, {
-            nodeUpdates: [{ id: neighborId, state: 'current' }],
-            edgeUpdates: [{ source: currentId, target: neighborId, isActive: true }],
-            description: `Added ${this.getNodeLabel(neighborId)} to stack`,
-            stack: stack.map(id => this.getNodeLabel(id))
-          });
-        }
-      }
-      // Always add a step to show the stack state after each iteration
-      this.addStep(stepId++, 'Stack State', 2, {
-        stack: stack.map(id => this.getNodeLabel(id))
-      });
-    }
-
-    this.addStep(stepId++, 'DFS Complete', 11, {
-      description: 'Algorithm finished: all reachable nodes visited.',
-      stack: stack.map(id => this.getNodeLabel(id))
-    });
-
-    return this.createDefaultExecution();
-  }
 
 
   // --- Shortest Path Algorithms ---
+	/**
+	 * Floyd-Warshall algorithm for all-pairs shortest paths.
+	 * Returns a matrix of shortest distances between all pairs of nodes.
+	 */
+	async runFloydWarshall(): Promise<AlgorithmExecution> {
+		this.steps = [];
+		this.operationLog = [];
+		let stepId = 0;
+		const nodeIds = this.graphData.nodes.map(n => n.id);
+		const dist: Record<string, Record<string, number>> = {};
+		// Initialize distance matrix
+		for (const u of nodeIds) {
+			dist[u] = {};
+			for (const v of nodeIds) {
+				if (u === v) {
+					dist[u][v] = 0;
+				} else {
+					const edge = this.graphData.edges.find(e => (e.source === u && e.target === v) || (e.target === u && e.source === v));
+					dist[u][v] = edge ? (edge.weight || 1) : Infinity;
+				}
+			}
+		}
+		this.addStep(stepId++, 'Initialize distance matrix', 1, {
+			matrix: JSON.parse(JSON.stringify(dist)),
+			description: 'Initialized distance matrix for all node pairs.'
+		});
+		// Floyd-Warshall main loop
+		for (const k of nodeIds) {
+			for (const i of nodeIds) {
+				for (const j of nodeIds) {
+					if (dist[i][k] + dist[k][j] < dist[i][j]) {
+						dist[i][j] = dist[i][k] + dist[k][j];
+						this.addStep(stepId++, 'Update shortest path', 2, {
+							matrix: JSON.parse(JSON.stringify(dist)),
+							description: `Updated shortest path: ${this.getNodeLabel(i)} → ${this.getNodeLabel(j)} via ${this.getNodeLabel(k)}`
+						});
+					}
+				}
+			}
+			this.addStep(stepId++, 'Matrix State', 3, {
+				matrix: JSON.parse(JSON.stringify(dist)),
+				description: `Matrix after considering ${this.getNodeLabel(k)} as intermediate.`
+			});
+		}
+		this.addStep(stepId++, 'Floyd-Warshall Complete', 4, {
+			matrix: JSON.parse(JSON.stringify(dist)),
+			description: 'Algorithm finished. All-pairs shortest paths calculated.'
+		});
+		return this.createDefaultExecution();
+	}
 
   async runDijkstra(startNodeId: string): Promise<AlgorithmExecution> {
     this.steps = [];
